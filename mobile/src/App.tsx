@@ -13,14 +13,27 @@ import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import RideHistory from './pages/RideHistory'
 import Notifications from './pages/Notifications'
-import { Home as HomeIcon, Search, Car, List, Wallet as WalletIcon } from 'lucide-react'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminEmployees from './pages/admin/AdminEmployees'
+import AdminVehicles from './pages/admin/AdminVehicles'
+import AdminReports from './pages/admin/AdminReports'
+import AdminSettings from './pages/admin/AdminSettings'
+import { Home as HomeIcon, Search, Car, List, Wallet as WalletIcon, Users, BarChart2, Settings } from 'lucide-react'
 
-const NAV = [
+const EMPLOYEE_NAV = [
   { to: '/home',       icon: HomeIcon,   label: 'Home' },
   { to: '/find-ride',  icon: Search,     label: 'Find' },
   { to: '/offer-ride', icon: Car,        label: 'Offer' },
   { to: '/trips',      icon: List,       label: 'Trips' },
   { to: '/wallet',     icon: WalletIcon, label: 'Wallet' },
+]
+
+const ADMIN_NAV = [
+  { to: '/admin',          icon: HomeIcon,  label: 'Home' },
+  { to: '/admin/employees', icon: Users,    label: 'Staff' },
+  { to: '/admin/vehicles',  icon: Car,      label: 'Fleet' },
+  { to: '/admin/reports',   icon: BarChart2, label: 'Reports' },
+  { to: '/admin/settings',  icon: Settings, label: 'Settings' },
 ]
 
 const HIDE_NAV = ['/', '/login', '/signup']
@@ -29,14 +42,19 @@ const HIDE_NAV_PREFIX = ['/trip/', '/payment/']
 function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
+
   const hide = HIDE_NAV.includes(location.pathname) ||
     HIDE_NAV_PREFIX.some(p => location.pathname.startsWith(p))
   if (hide) return null
 
+  const nav = user?.role === 'ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
+
   return (
     <nav className="bottom-nav">
-      {NAV.map(({ to, icon: Icon, label }) => {
-        const active = location.pathname === to || (to !== '/home' && location.pathname.startsWith(to))
+      {nav.map(({ to, icon: Icon, label }) => {
+        const active = location.pathname === to ||
+          (to !== '/home' && to !== '/admin' && location.pathname.startsWith(to))
         return (
           <button
             key={to}
@@ -54,7 +72,7 @@ function BottomNav() {
   )
 }
 
-function Guard({ children }: { children: React.ReactNode }) {
+function Guard({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
   if (loading) return (
     <div className="h-full flex flex-col items-center justify-center gap-4 bg-white">
@@ -63,6 +81,7 @@ function Guard({ children }: { children: React.ReactNode }) {
     </div>
   )
   if (!user) return <Navigate to="/login" replace />
+  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/home" replace />
   return <>{children}</>
 }
 
@@ -75,13 +94,16 @@ function AppRoutes() {
     </div>
   )
 
+  const home = user?.role === 'ADMIN' ? '/admin' : '/home'
+
   return (
     <>
       <Routes>
-        <Route path="/"        element={<Navigate to={user ? '/home' : '/login'} replace />} />
-        <Route path="/login"   element={user ? <Navigate to="/home" replace /> : <Login />} />
-        <Route path="/signup"  element={user ? <Navigate to="/home" replace /> : <Signup />} />
+        <Route path="/"       element={<Navigate to={user ? home : '/login'} replace />} />
+        <Route path="/login"  element={user ? <Navigate to={home} replace /> : <Login />} />
+        <Route path="/signup" element={user ? <Navigate to={home} replace /> : <Signup />} />
 
+        {/* Employee routes */}
         <Route path="/home"        element={<Guard><Home /></Guard>} />
         <Route path="/find-ride"   element={<Guard><FindRide /></Guard>} />
         <Route path="/offer-ride"  element={<Guard><OfferRide /></Guard>} />
@@ -92,6 +114,13 @@ function AppRoutes() {
         <Route path="/profile"     element={<Guard><Profile /></Guard>} />
         <Route path="/history"     element={<Guard><RideHistory /></Guard>} />
         <Route path="/notifications" element={<Guard><Notifications /></Guard>} />
+
+        {/* Admin routes */}
+        <Route path="/admin"           element={<Guard adminOnly><AdminDashboard /></Guard>} />
+        <Route path="/admin/employees" element={<Guard adminOnly><AdminEmployees /></Guard>} />
+        <Route path="/admin/vehicles"  element={<Guard adminOnly><AdminVehicles /></Guard>} />
+        <Route path="/admin/reports"   element={<Guard adminOnly><AdminReports /></Guard>} />
+        <Route path="/admin/settings"  element={<Guard adminOnly><AdminSettings /></Guard>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
