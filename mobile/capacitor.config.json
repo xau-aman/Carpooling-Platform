@@ -4,9 +4,24 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
-    "cleartext": true
+    "cleartext": true,
+    "allowNavigation": [
+      "*.razorpay.com",
+      "api.razorpay.com",
+      "checkout.razorpay.com",
+      "*.openstreetmap.org",
+      "nominatim.openstreetmap.org",
+      "carpooling-platform.onrender.com"
+    ]
   },
   "android": {
     "allowMixedContent": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#714B67",
+      "sound": "beep.wav"
+    }
   }
 }

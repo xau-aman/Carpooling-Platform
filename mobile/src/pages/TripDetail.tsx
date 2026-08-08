@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext'
 import OtpCard from '../components/OtpCard'
 import GeofenceBar from '../components/GeofenceBar'
 import RatingCard from '../components/RatingCard'
+import LiveMap from '../components/LiveMap'
 
 interface Loc { lat: number; lng: number; heading?: number; speed?: number }
 interface Msg { id: string; senderId: string; message: string; createdAt: string; sender: { name: string } }
@@ -32,13 +33,13 @@ const haversineM = (a: number, b: number, c: number, d: number) => {
 }
 
 const SC: Record<string, { label: string; bg: string; color: string }> = {
-  BOOKED:            { label: 'Upcoming',       bg: '#EFF6FF', color: '#2563EB' },
-  STARTED:           { label: '🔑 OTP Pending', bg: '#FFFBEB', color: '#D97706' },
-  IN_PROGRESS:       { label: '🔴 Live',        bg: '#FFF7ED', color: '#EA580C' },
-  PAYMENT_PENDING:   { label: 'Pay Now',        bg: '#FEF9C3', color: '#CA8A04' },
-  PAYMENT_COMPLETED: { label: 'Completed',      bg: '#F0FDF4', color: '#16A34A' },
-  COMPLETED:         { label: 'Completed',      bg: '#F0FDF4', color: '#16A34A' },
-  CANCELLED:         { label: 'Cancelled',      bg: '#F5F5F5', color: '#6B7280' },
+  BOOKED:            { label: 'Upcoming',    bg: '#EFF6FF', color: '#2563EB' },
+  STARTED:           { label: 'OTP Pending', bg: '#FFFBEB', color: '#D97706' },
+  IN_PROGRESS:       { label: 'Live',        bg: '#FFF7ED', color: '#EA580C' },
+  PAYMENT_PENDING:   { label: 'Pay Now',     bg: '#FEF9C3', color: '#CA8A04' },
+  PAYMENT_COMPLETED: { label: 'Completed',   bg: '#F0FDF4', color: '#16A34A' },
+  COMPLETED:         { label: 'Completed',   bg: '#F0FDF4', color: '#16A34A' },
+  CANCELLED:         { label: 'Cancelled',   bg: '#F5F5F5', color: '#6B7280' },
 }
 
 export default function TripDetail() {
@@ -56,18 +57,14 @@ export default function TripDetail() {
   const [driverLoc, setDriverLoc] = useState<Loc | null>(null)
   const [distM, setDistM] = useState<number | null>(null)
 
-  // OTP
-  const [otp, setOtp] = useState<string | null>(null)
   const [otpInput, setOtpInput] = useState('')
   const [passengerOtp, setPassengerOtp] = useState<string | null>(null)
 
-  // Ratings
   const [driverRating, setDriverRating] = useState(0)
   const [driverRated, setDriverRated] = useState(false)
   const [paxRating, setPaxRating] = useState(0)
   const [paxRated, setPaxRated] = useState(false)
 
-  // Earning
   const [earning, setEarning] = useState<number | null>(null)
 
   const chatRef = useRef<HTMLDivElement>(null)
@@ -76,10 +73,27 @@ export default function TripDetail() {
   const isDriver = trip?.participants.find(p => p.userId === user?.id)?.isDriver
   const canCancel = ['BOOKED', 'STARTED'].includes(trip?.status ?? '')
 
+  // Join personal socket room IMMEDIATELY on mount — before trip loads
+  // This ensures OTP socket event is not missed due to race condition
+  useEffect(() => {
+    if (!user) return
+    const s = connectSocket()
+    s.emit('user:join', user.id)
+    // Re-join on reconnect
+    s.on('connect', () => s.emit('user:join', user.id))
+    return () => { s.off('connect') }
+  }, [user?.id])
+
   useEffect(() => {
     if (!id) return
     api.get(`/trips/${id}`)
-      .then(r => { setTrip(r.data.data); setMsgs(r.data.data.messages || []) })
+      .then(r => {
+        const t = r.data.data
+        setTrip(t)
+        setMsgs(t.messages || [])
+        // If trip already STARTED and passenger, OTP is in trip data
+        if (t.status === 'STARTED' && t.otp) setPassengerOtp(t.otp)
+      })
       .catch(() => toast('Trip not found', 'error'))
       .finally(() => setLoading(false))
   }, [id])
@@ -89,8 +103,6 @@ export default function TripDetail() {
     const s = connectSocket()
     s.emit('trip:join', trip.id)
     s.emit('chat:join', trip.id)
-    // Join personal room so OTP reaches this device
-    s.emit('user:join', user.id)
 
     s.on('trip:location', (loc: Loc) => {
       setDriverLoc(loc)
@@ -115,10 +127,14 @@ export default function TripDetail() {
     s.on('trip:cancelled', (d: { tripId: string }) => {
       if (d.tripId === trip.id) { setTrip(t => t ? { ...t, status: 'CANCELLED' } : t); toast('Ride cancelled', 'error') }
     })
+    s.on('booking:cancelled', () => {
+      // Driver sees passenger cancelled — reload trip
+      api.get(`/trips/${trip.id}`).then(r => setTrip(r.data.data))
+    })
 
     return () => {
       s.emit('trip:leave', trip.id)
-      ;['trip:location','chat:message','trip:otp','trip:started','trip:completed','trip:payment_done','payment:received','trip:cancelled'].forEach(e => s.off(e))
+      ;['trip:location','chat:message','trip:otp','trip:started','trip:completed','trip:payment_done','payment:received','trip:cancelled','booking:cancelled'].forEach(e => s.off(e))
     }
   }, [trip?.id])
 
@@ -131,15 +147,17 @@ export default function TripDetail() {
     setBusy(true)
     try {
       const r = await api.post(`/trips/${trip.id}/start`)
-      setOtp(r.data.data.otp)
       setTrip(t => t ? { ...t, status: 'STARTED' } : t)
-      toast(`OTP: ${r.data.data.otp} — ask passenger`, 'success')
+      toast(`OTP sent to passenger`, 'success')
       if (navigator.geolocation) {
         watchRef.current = navigator.geolocation.watchPosition(pos => {
           getSocket().emit('trip:location', { tripId: trip.id, lat: pos.coords.latitude, lng: pos.coords.longitude })
           setDistM(Math.round(haversineM(pos.coords.latitude, pos.coords.longitude, trip.ride.destLat, trip.ride.destLng)))
         }, () => {}, { enableHighAccuracy: true })
       }
+      // Also set driver location to pickup initially
+      setDriverLoc({ lat: trip.ride.pickupLat, lng: trip.ride.pickupLng })
+      void r
     } catch { toast('Failed to start', 'error') }
     finally { setBusy(false) }
   }
@@ -150,8 +168,7 @@ export default function TripDetail() {
     try {
       await api.post(`/trips/${trip.id}/verify-otp`, { otp: otpInput })
       setTrip(t => t ? { ...t, status: 'IN_PROGRESS' } : t)
-      setOtp(null)
-      toast('OTP verified! Ride is live 🚗', 'success')
+      toast('OTP verified! Ride is live', 'success')
     } catch (e: unknown) {
       toast((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid OTP', 'error')
     }
@@ -161,13 +178,14 @@ export default function TripDetail() {
   const simulate = () => {
     if (!trip) return
     const wp = [
-      { lat: 22.5839, lng: 88.3424 }, { lat: 22.5800, lng: 88.3600 },
-      { lat: 22.5760, lng: 88.3800 }, { lat: 22.5740, lng: 88.4000 },
-      { lat: 22.5726, lng: 88.4319 },
+      { lat: trip.ride.pickupLat, lng: trip.ride.pickupLng },
+      { lat: (trip.ride.pickupLat + trip.ride.destLat) / 2, lng: (trip.ride.pickupLng + trip.ride.destLng) / 2 },
+      { lat: trip.ride.destLat, lng: trip.ride.destLng },
     ]
     getSocket().emit('trip:simulate', { tripId: trip.id, waypoints: wp })
-    setTimeout(() => setDistM(0), wp.length * 2000 + 500)
-    toast('Simulation started', 'info')
+    setDistM(0)
+    setDriverLoc({ lat: trip.ride.destLat, lng: trip.ride.destLng })
+    toast('Simulation done', 'success')
   }
 
   const completeTrip = async () => {
@@ -177,6 +195,7 @@ export default function TripDetail() {
       const simulated = distM !== null && distM <= 50
       await api.post(`/trips/${trip.id}/complete`, { lat: driverLoc?.lat, lng: driverLoc?.lng, simulated })
       setTrip(t => t ? { ...t, status: 'PAYMENT_PENDING' } : t)
+      setMsgs([])
       if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current)
       toast('Trip completed!', 'success')
     } catch (e: unknown) {
@@ -191,6 +210,7 @@ export default function TripDetail() {
     try {
       await api.post(`/trips/${trip.id}/cancel-ride`)
       setTrip(t => t ? { ...t, status: 'CANCELLED' } : t)
+      setMsgs([])
       toast('Ride cancelled', 'info')
     } catch { toast('Failed to cancel', 'error') }
     finally { setBusy(false) }
@@ -222,7 +242,6 @@ export default function TripDetail() {
   )
   if (!trip) return (
     <div className="h-full flex flex-col items-center justify-center px-8 text-center gap-4">
-      <p className="text-4xl">😕</p>
       <p className="font-bold text-xl">Trip not found</p>
       <button onClick={() => navigate('/trips')} className="m-btn m-btn-primary">Go Back</button>
     </div>
@@ -261,14 +280,31 @@ export default function TripDetail() {
         {/* OTP card */}
         <div className="mt-4">
           <OtpCard
-            otp={otp} passengerOtp={passengerOtp}
+            passengerOtp={passengerOtp}
             otpInput={otpInput} onOtpInput={setOtpInput}
             onVerify={verifyOtp} loading={busy} isDriver={!!isDriver}
+            tripStatus={trip.status}
           />
         </div>
 
+        {/* Live map */}
+        {driverLoc && (
+          <div className="mx-4 mt-4">
+            <LiveMap
+              driverLat={driverLoc.lat} driverLng={driverLoc.lng}
+              pickupLat={trip.ride.pickupLat} pickupLng={trip.ride.pickupLng}
+              destLat={trip.ride.destLat} destLng={trip.ride.destLng}
+            />
+          </div>
+        )}
+
+        {/* Geofence bar */}
+        <div className="mt-3">
+          <GeofenceBar distM={distM} />
+        </div>
+
         {/* Driver card */}
-        <div className="mx-4 mt-4 m-card p-4">
+        <div className="mx-4 mt-3 m-card p-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0"
               style={{ background: 'linear-gradient(135deg,#714B67,#875A7B)' }}>
@@ -276,7 +312,7 @@ export default function TripDetail() {
             </div>
             <div className="flex-1">
               <p className="font-bold">{driver?.user.name}</p>
-              <p className="text-xs text-[#6b6b6b] mt-0.5">⭐ 4.9 · Driver</p>
+              <p className="text-xs text-[#6b6b6b] mt-0.5">4.9 · Driver</p>
             </div>
             <div className="flex gap-2">
               {trip.ride.driver.phone && (
@@ -329,19 +365,6 @@ export default function TripDetail() {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Live location */}
-        {driverLoc && (
-          <div className="mx-4 mt-3 rounded-2xl p-3 flex items-center gap-3" style={{ background: '#f97316' }}>
-            <Navigation size={18} className="text-white shrink-0" />
-            <p className="text-white font-bold text-sm">Driver is live · {driverLoc.lat.toFixed(4)}, {driverLoc.lng.toFixed(4)}</p>
-          </div>
-        )}
-
-        {/* Geofence bar */}
-        <div className="mt-3">
-          <GeofenceBar distM={distM} />
         </div>
 
         {/* ── DRIVER ACTIONS ── */}
@@ -434,7 +457,7 @@ export default function TripDetail() {
             <p className="font-display font-bold text-lg">Trip Chat</p>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {msgs.length === 0 && <p className="text-center text-sm text-[#6b6b6b] mt-8">No messages yet 👋</p>}
+            {msgs.length === 0 && <p className="text-center text-sm text-[#6b6b6b] mt-8">No messages yet</p>}
             {msgs.map(m => {
               const mine = m.senderId === user?.id
               return (

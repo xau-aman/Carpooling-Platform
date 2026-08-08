@@ -1,10 +1,12 @@
 import axios from 'axios'
 import { tokenStore } from './tokenStore'
 
-const api = axios.create({ baseURL: '/api/v1', withCredentials: true })
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || ''
+
+const api = axios.create({ baseURL: `${SERVER_URL}/api/v1`, withCredentials: true })
 
 // Separate instance — no interceptors, used only for refresh to avoid infinite loop
-const authApi = axios.create({ baseURL: '/api/v1', withCredentials: true })
+const authApi = axios.create({ baseURL: `${SERVER_URL}/api/v1`, withCredentials: true })
 
 api.interceptors.request.use((config) => {
   const token = tokenStore.get()

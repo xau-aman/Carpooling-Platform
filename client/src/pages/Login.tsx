@@ -6,9 +6,9 @@ import { useToast } from '../context/ToastContext'
 import api from '../lib/api'
 
 const DEMO = [
-  { label: 'Employee', email: 'aman@odoo.com',  color: '#714B67' },
-  { label: 'Driver',   email: 'raj@odoo.com',   color: '#00A09D' },
-  { label: 'Admin',    email: 'admin@odoo.com',  color: '#F06050' },
+  { label: 'Employee', email: 'user@gotogether.com',   color: '#714B67' },
+  { label: 'Driver',   email: 'driver@gotogether.com', color: '#00A09D' },
+  { label: 'Admin',    email: 'admin@gotogether.com',  color: '#F06050' },
 ]
 
 export default function Login() {

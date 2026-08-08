@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
 import { authApi } from '../lib/api'
 import { tokenStore } from '../lib/tokenStore'
+import { requestNotificationPermission } from '../lib/notifications'
 
 interface User {
   id: string; email: string; name: string; phone?: string
@@ -26,7 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (didInit.current) return
     didInit.current = true
 
-    // Try localStorage first (works on Android without cookies)
     const saved = tokenStore.load()
     const savedUser = localStorage.getItem('gt_user')
     if (saved && savedUser) {
@@ -34,16 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const u = JSON.parse(savedUser)
         tokenStore.set(saved); setToken(saved); setUser(u)
         setLoading(false)
+        requestNotificationPermission()
         return
       } catch {}
     }
 
-    // Fallback: try cookie-based refresh (works on web)
     authApi.post('/auth/refresh')
       .then(r => {
         const { token: t, user: u } = r.data.data
         tokenStore.set(t); setToken(t); setUser(u)
         localStorage.setItem('gt_user', JSON.stringify(u))
+        requestNotificationPermission()
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (t: string, u: User) => {
     tokenStore.set(t); setToken(t); setUser(u)
     localStorage.setItem('gt_user', JSON.stringify(u))
+    requestNotificationPermission()
   }
 
   const logout = () => {

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Payment</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #f5f5f5; font-family: -apple-system, sans-serif; }
+    #loading {
+      height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 3px solid #714B67; border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #6b6b6b; font-size: 14px; }
+    #error {
+      display: none; height: 100vh; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center;
+    }
+    #error p { color: #dc2626; font-size: 14px; }
+    #retry {
+      background: #714B67; color: white; border: none; border-radius: 100px;
+      padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Opening secure payment...</p>
+  </div>
+  <div id="error">
+    <p id="errMsg">Payment could not be opened.</p>
+    <button id="retry" onclick="init()">Retry</button>
+    <button id="cancel" onclick="dismiss()" style="background:transparent;color:#6b6b6b;border:none;font-size:14px;cursor:pointer;margin-top:4px;">Cancel</button>
+  </div>
+
+  <script>
+    function dismiss() {
+      window.parent.postMessage(JSON.stringify({ type: 'rzp_dismiss' }), '*')
+      try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'rzp_dismiss' })) } catch(e){}
+    }
+
+    function sendSuccess(data) {
+      window.parent.postMessage(JSON.stringify({ type: 'rzp_success', ...data }), '*')
+      try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'rzp_success', ...data })) } catch(e){}
+    }
+
+    function getParams() {
+      var p = new URLSearchParams(window.location.search)
+      return {
+        key:         p.get('key'),
+        orderId:     p.get('orderId'),
+        amount:      parseInt(p.get('amount') || '0'),
+        name:        p.get('name') || 'GoTogether',
+        description: p.get('description') || 'Payment',
+        prefillName: p.get('prefillName') || '',
+        prefillEmail:p.get('prefillEmail') || '',
+        prefillPhone:p.get('prefillPhone') || '',
+      }
+    }
+
+    function init() {
+      document.getElementById('loading').style.display = 'flex'
+      document.getElementById('error').style.display = 'none'
+
+      var params = getParams()
+      if (!params.key || !params.orderId) {
+        document.getElementById('loading').style.display = 'none'
+        document.getElementById('error').style.display = 'flex'
+        document.getElementById('errMsg').textContent = 'Missing payment parameters.'
+        return
+      }
+
+      try {
+        var rzp = new Razorpay({
+          key: params.key,
+          order_id: params.orderId,
+          amount: params.amount,
+          currency: 'INR',
+          name: params.name,
+          description: params.description,
+          prefill: { name: params.prefillName, email: params.prefillEmail, contact: params.prefillPhone },
+          theme: { color: '#714B67' },
+          modal: {
+            ondismiss: function() { dismiss() }
+          },
+          handler: function(response) {
+            sendSuccess({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPayId:   response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature
+            })
+          }
+        })
+        document.getElementById('loading').style.display = 'none'
+        rzp.open()
+      } catch(e) {
+        document.getElementById('loading').style.display = 'none'
+        document.getElementById('error').style.display = 'flex'
+        document.getElementById('errMsg').textContent = 'Error: ' + e.message
+      }
+    }
+
+    // Wait for Razorpay script to load
+    window.onload = function() { init() }
+  </script>
+</body>
+</html>

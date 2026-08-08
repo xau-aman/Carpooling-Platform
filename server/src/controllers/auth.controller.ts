@@ -72,8 +72,18 @@ export const getOrganizations = async (_req: Request, res: Response) => {
 }
 
 // No DB call — user data decoded from JWT
-export const getMe = (req: AuthRequest, res: Response) => {
-  return ok(res, { id: req.user!.userId, role: req.user!.role, organizationId: req.user!.organizationId })
+export const getMe = async (req: AuthRequest, res: Response) => {
+  try {
+    const { prisma } = await import('../config/prisma')
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { id: true, name: true, email: true, phone: true, role: true, organizationId: true, profilePhoto: true, isActive: true, createdAt: true, profile: true },
+    })
+    if (!user) return res.status(401).json({ success: false, message: 'User not found' })
+    return ok(res, user)
+  } catch (e) {
+    return serverError(res, e)
+  }
 }
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {

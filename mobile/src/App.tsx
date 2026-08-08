@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { useEffect } from 'react'
+import { connectSocket } from './lib/socket'
+import { showLocalNotification } from './lib/notifications'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Home from './pages/Home'
@@ -72,6 +75,22 @@ function BottomNav() {
   )
 }
 
+// Global notification listener — fires native push for every socket notification
+function NotificationBridge() {
+  const { user } = useAuth()
+  useEffect(() => {
+    if (!user) return
+    const s = connectSocket()
+    s.emit('user:join', user.id)
+    const handler = (d: { title: string; body: string }) => {
+      showLocalNotification(d.title, d.body)
+    }
+    s.on('notification:new', handler)
+    return () => { s.off('notification:new', handler) }
+  }, [user?.id])
+  return null
+}
+
 function Guard({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, loading } = useAuth()
   if (loading) return (
@@ -98,6 +117,7 @@ function AppRoutes() {
 
   return (
     <>
+      <NotificationBridge />
       <Routes>
         <Route path="/"       element={<Navigate to={user ? home : '/login'} replace />} />
         <Route path="/login"  element={user ? <Navigate to={home} replace /> : <Login />} />
