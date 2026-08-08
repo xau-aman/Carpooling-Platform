@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Car, Wallet, MapPin, Bell, LogOut, ChevronRight,
+  Car, Wallet, MapPin, LogOut, ChevronRight,
   Edit2, Check, X, Plus, Trash2, Navigation, History,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -92,7 +92,6 @@ export default function Settings() {
     { icon: History, label: 'My Trips', to: '/trips', color: '#714B67', bg: 'rgba(113,75,103,0.1)' },
     { icon: Car, label: 'My Vehicle', to: '/vehicles', color: '#F06050', bg: 'rgba(240,96,80,0.1)' },
     { icon: Wallet, label: 'Wallet', to: '/wallet', color: '#00A09D', bg: 'rgba(0,160,157,0.1)' },
-    { icon: Bell, label: 'Notifications', to: '/notifications', color: '#6CC1ED', bg: 'rgba(108,193,237,0.1)' },
   ]
 
   return (

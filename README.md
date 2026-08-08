@@ -8,10 +8,10 @@
 
 | Role     | Email                  | Password    |
 |----------|------------------------|-------------|
-| Admin    | admin@techcorp.demo    | Demo@1234   |
-| Driver   | raj@techcorp.demo      | Demo@1234   |
-| Employee | aman@techcorp.demo     | Demo@1234   |
-| Employee | priya@techcorp.demo    | Demo@1234   |
+| Admin    | admin@odoo.com    | Demo@1234   |
+| Driver   | raj@odoo.com      | Demo@1234   |
+| Employee | aman@odoo.com     | Demo@1234   |
+| Employee | priya@odoo.com    | Demo@1234   |
 
 ---
 

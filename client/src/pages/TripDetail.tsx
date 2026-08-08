@@ -25,6 +25,8 @@ export default function TripDetail() {
   const [actionLoading, setActionLoading] = useState(false)
   const [rating, setRating] = useState(0)
   const [rated, setRated] = useState(false)
+  const [passengerRating, setPassengerRating] = useState(0)
+  const [passengerRated, setPassengerRated] = useState(false)
   const watchRef = useRef<number | null>(null)
 
   const isDriver = trip?.participants.find(p => p.userId === user?.id)?.isDriver
@@ -75,10 +77,9 @@ export default function TripDetail() {
   const simulateMovement = () => {
     if (!trip) return
     const waypoints = [
-      { lat: 23.0395, lng: 72.5079 }, { lat: 23.0550, lng: 72.5300 },
-      { lat: 23.0750, lng: 72.5600 }, { lat: 23.1000, lng: 72.5900 },
-      { lat: 23.1200, lng: 72.6200 }, { lat: 23.1400, lng: 72.6500 },
-      { lat: 23.1627, lng: 72.6842 },
+      { lat: 22.5839, lng: 88.3424 }, { lat: 22.5800, lng: 88.3600 },
+      { lat: 22.5760, lng: 88.3800 }, { lat: 22.5740, lng: 88.4000 },
+      { lat: 22.5730, lng: 88.4150 }, { lat: 22.5726, lng: 88.4319 },
     ]
     getSocket().emit('trip:simulate', { tripId: trip.id, waypoints })
     toast('Simulation started — passenger can see movement', 'info')
@@ -104,6 +105,19 @@ export default function TripDetail() {
       await api.post('/ratings', { rateeId: driverParticipant.userId, rideId: trip.rideId, score: rating })
       setRated(true)
       toast('Rating submitted!', 'success')
+    } catch { toast('Failed to submit rating', 'error') }
+  }
+
+  const submitPassengerRating = async () => {
+    if (!trip || !passengerRating) return
+    const passengers = trip.participants.filter(p => !p.isDriver)
+    if (!passengers.length) return
+    try {
+      await Promise.all(passengers.map(p =>
+        api.post('/ratings', { rateeId: p.userId, rideId: trip.rideId, score: passengerRating })
+      ))
+      setPassengerRated(true)
+      toast('Passenger rated!', 'success')
     } catch { toast('Failed to submit rating', 'error') }
   }
 
@@ -252,7 +266,25 @@ export default function TripDetail() {
         </div>
       )}
 
-      {/* Rating (after completion) */}
+      {/* Two-way Rating: Driver rates passengers */}
+      {isDriver && ['PAYMENT_COMPLETED', 'COMPLETED', 'PAYMENT_PENDING'].includes(trip.status) && !passengerRated && (
+        <div className="neo-card p-5 mb-4">
+          <p className="font-bold text-sm uppercase mb-1">Rate your passengers</p>
+          <p className="text-xs text-[#6b6b6b] mb-3">How was the ride experience?</p>
+          <div className="flex gap-2 mb-3">
+            {[1, 2, 3, 4, 5].map(s => (
+              <button key={s} onClick={() => setPassengerRating(s)} className="text-2xl transition-transform hover:scale-110">
+                {s <= passengerRating ? '⭐' : '☆'}
+              </button>
+            ))}
+          </div>
+          {passengerRating > 0 && (
+            <Button variant="dark" size="sm" onClick={submitPassengerRating}>Submit Rating</Button>
+          )}
+        </div>
+      )}
+
+      {/* Passenger rates driver */}
       {!isDriver && ['PAYMENT_COMPLETED', 'COMPLETED'].includes(trip.status) && !rated && (
         <div className="neo-card p-5 mb-4">
           <p className="font-bold text-sm uppercase mb-3">Rate your driver</p>

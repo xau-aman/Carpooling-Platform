@@ -176,21 +176,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        {/* Desktop topbar notification bell */}
-        <div className="hidden lg:flex items-center justify-end px-8 py-3 bg-white border-b border-[#DEE2E6] shrink-0">
-          <button
-            onClick={() => { setNotifCount(0); navigate('/notifications') }}
-            className="relative p-2 rounded-xl hover:bg-[#F5F5F5] text-[#495057] transition-colors"
-          >
-            <Bell size={20} />
-            {notifCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center border-2 border-white" style={{ background: '#F06050' }}>
-                {notifCount > 9 ? '9+' : notifCount}
-              </span>
-            )}
-          </button>
-        </div>
-
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           {children}
         </main>

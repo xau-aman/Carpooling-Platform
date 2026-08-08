@@ -1,21 +1,24 @@
 import { PrismaClient, FuelType, RideStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import * as dotenv from 'dotenv'
+import * as path from 'path'
+dotenv.config({ path: path.join(__dirname, '../.env') })
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding WorkZen...')
 
-  // ── Organizations ──────────────────────────────────────────────────────
+  // ── Organization — Odoo ────────────────────────────────────────────────
   const org1 = await prisma.organization.upsert({
-    where: { id: 'org-demo-1' },
-    update: {},
+    where: { id: 'org-odoo-1' },
+    update: { name: 'Odoo', adminEmail: 'admin@odoo.com', address: 'Sector V, Salt Lake, Kolkata, West Bengal' },
     create: {
-      id: 'org-demo-1',
-      name: 'TechCorp India',
-      address: 'GIFT City, Gandhinagar, Gujarat',
+      id: 'org-odoo-1',
+      name: 'Odoo',
+      address: 'Sector V, Salt Lake, Kolkata, West Bengal',
       industry: 'Technology',
-      adminEmail: 'admin@techcorp.demo',
+      adminEmail: 'admin@odoo.com',
     },
   })
 
@@ -34,12 +37,12 @@ async function main() {
 
   // ── Users ──────────────────────────────────────────────────────────────
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@techcorp.demo' },
+    where: { email: 'admin@odoo.com' },
     update: {},
     create: {
       id: 'user-admin-1',
       organizationId: org1.id,
-      email: 'admin@techcorp.demo',
+      email: 'admin@odoo.com',
       name: 'Admin User',
       phone: '9000000001',
       passwordHash: hash,
@@ -48,44 +51,44 @@ async function main() {
   })
 
   const driver = await prisma.user.upsert({
-    where: { email: 'raj@techcorp.demo' },
+    where: { email: 'raj@odoo.com' },
     update: {},
     create: {
       id: 'user-driver-1',
       organizationId: org1.id,
-      email: 'raj@techcorp.demo',
+      email: 'raj@odoo.com',
       name: 'Raj Patel',
       phone: '9000000002',
       passwordHash: hash,
-      profile: { create: { department: 'Engineering', manager: 'Admin User', location: 'Ahmedabad' } },
+      profile: { create: { department: 'Engineering', manager: 'Admin User', location: 'Kolkata' } },
     },
   })
 
   const employee = await prisma.user.upsert({
-    where: { email: 'aman@techcorp.demo' },
+    where: { email: 'aman@odoo.com' },
     update: {},
     create: {
       id: 'user-emp-1',
       organizationId: org1.id,
-      email: 'aman@techcorp.demo',
+      email: 'aman@odoo.com',
       name: 'Aman Shah',
       phone: '9000000003',
       passwordHash: hash,
-      profile: { create: { department: 'Product', manager: 'Admin User', location: 'Ahmedabad' } },
+      profile: { create: { department: 'Product', manager: 'Admin User', location: 'Kolkata' } },
     },
   })
 
   const emp2 = await prisma.user.upsert({
-    where: { email: 'priya@techcorp.demo' },
+    where: { email: 'priya@odoo.com' },
     update: {},
     create: {
       id: 'user-emp-2',
       organizationId: org1.id,
-      email: 'priya@techcorp.demo',
+      email: 'priya@odoo.com',
       name: 'Priya Mehta',
       phone: '9000000004',
       passwordHash: hash,
-      profile: { create: { department: 'Design', manager: 'Admin User', location: 'Ahmedabad' } },
+      profile: { create: { department: 'Design', manager: 'Admin User', location: 'Kolkata' } },
     },
   })
 
@@ -141,23 +144,22 @@ async function main() {
       organizationId: org1.id,
       driverId: driver.id,
       vehicleId: vehicle1.id,
-      pickupAddress: 'ISKCON Temple, Ahmedabad',
-      pickupLat: 23.0395,
-      pickupLng: 72.5079,
-      destAddress: 'Infocity, GIFT City, Gandhinagar',
-      destLat: 23.1627,
-      destLng: 72.6842,
+      pickupAddress: 'Howrah Station, Howrah, Kolkata',
+      pickupLat: 22.5839,
+      pickupLng: 88.3424,
+      destAddress: 'Odoo India, Sector V, Salt Lake, Kolkata',
+      destLat: 22.5726,
+      destLng: 88.4319,
       departureTime: tomorrow,
       availableSeats: 3,
       totalSeats: 3,
       farePerSeat: 120,
       status: RideStatus.PUBLISHED,
-      distanceKm: 14.8,
-      durationMin: 34,
+      distanceKm: 12.4,
+      durationMin: 32,
     },
   })
 
-  // Ride 2 — day after tomorrow
   const dayAfter = new Date()
   dayAfter.setDate(dayAfter.getDate() + 2)
   dayAfter.setHours(8, 30, 0, 0)
@@ -170,23 +172,23 @@ async function main() {
       organizationId: org1.id,
       driverId: emp2.id,
       vehicleId: (await prisma.vehicle.findFirst({ where: { userId: emp2.id } }))!.id,
-      pickupAddress: 'Satellite, Ahmedabad',
-      pickupLat: 23.0225,
-      pickupLng: 72.5114,
-      destAddress: 'Infocity, GIFT City, Gandhinagar',
-      destLat: 23.1627,
-      destLng: 72.6842,
+      pickupAddress: 'Park Street, Kolkata',
+      pickupLat: 22.5514,
+      pickupLng: 88.3527,
+      destAddress: 'Odoo India, Sector V, Salt Lake, Kolkata',
+      destLat: 22.5726,
+      destLng: 88.4319,
       departureTime: dayAfter,
       availableSeats: 2,
       totalSeats: 2,
       farePerSeat: 100,
       status: RideStatus.PUBLISHED,
-      distanceKm: 16.2,
-      durationMin: 38,
+      distanceKm: 10.8,
+      durationMin: 28,
     },
   })
 
-  // ── Completed trip for history ─────────────────────────────────────────
+  // ── Past completed trip ────────────────────────────────────────────────
   const pastDate = new Date()
   pastDate.setDate(pastDate.getDate() - 3)
   pastDate.setHours(9, 0, 0, 0)
@@ -199,19 +201,19 @@ async function main() {
       organizationId: org1.id,
       driverId: driver.id,
       vehicleId: vehicle1.id,
-      pickupAddress: 'ISKCON Temple, Ahmedabad',
-      pickupLat: 23.0395,
-      pickupLng: 72.5079,
-      destAddress: 'Infocity, GIFT City, Gandhinagar',
-      destLat: 23.1627,
-      destLng: 72.6842,
+      pickupAddress: 'Howrah Station, Howrah, Kolkata',
+      pickupLat: 22.5839,
+      pickupLng: 88.3424,
+      destAddress: 'Odoo India, Sector V, Salt Lake, Kolkata',
+      destLat: 22.5726,
+      destLng: 88.4319,
       departureTime: pastDate,
       availableSeats: 0,
       totalSeats: 3,
       farePerSeat: 120,
       status: RideStatus.COMPLETED,
-      distanceKm: 14.8,
-      durationMin: 34,
+      distanceKm: 12.4,
+      durationMin: 32,
     },
   })
 
@@ -265,30 +267,15 @@ async function main() {
   await prisma.savedPlace.upsert({
     where: { id: 'place-home-1' },
     update: {},
-    create: {
-      id: 'place-home-1',
-      userId: employee.id,
-      label: 'Home',
-      address: 'ISKCON Temple, Ahmedabad',
-      lat: 23.0395,
-      lng: 72.5079,
-    },
+    create: { id: 'place-home-1', userId: employee.id, label: 'Home', address: 'Howrah Station, Howrah, Kolkata', lat: 22.5839, lng: 88.3424 },
   })
-
   await prisma.savedPlace.upsert({
     where: { id: 'place-office-1' },
     update: {},
-    create: {
-      id: 'place-office-1',
-      userId: employee.id,
-      label: 'Office',
-      address: 'Infocity, GIFT City, Gandhinagar',
-      lat: 23.1627,
-      lng: 72.6842,
-    },
+    create: { id: 'place-office-1', userId: employee.id, label: 'Office', address: 'Odoo India, Sector V, Salt Lake, Kolkata', lat: 22.5726, lng: 88.4319 },
   })
 
-  // ── Upcoming trip (for demo) ───────────────────────────────────────────
+  // ── Upcoming trip ──────────────────────────────────────────────────────
   const upcomingTrip = await prisma.trip.upsert({
     where: { rideId: ride1.id },
     update: {},
@@ -330,10 +317,12 @@ async function main() {
 
   console.log('✅ Seed complete!')
   console.log('\n📋 Demo Accounts (password: Demo@1234):')
-  console.log('  Admin:    admin@techcorp.demo')
-  console.log('  Driver:   raj@techcorp.demo')
-  console.log('  Employee: aman@techcorp.demo')
-  console.log('  Employee: priya@techcorp.demo')
+  console.log('  Admin:    admin@odoo.com')
+  console.log('  Driver:   raj@odoo.com')
+  console.log('  Employee: aman@odoo.com')
+  console.log('  Employee: priya@odoo.com')
+  console.log('  Org:      Odoo (Kolkata)')
+  console.log('  Office:   Sector V, Salt Lake, Kolkata')
 }
 
 main()
