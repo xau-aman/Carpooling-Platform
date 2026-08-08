@@ -2,19 +2,24 @@ import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
 import * as repo from '../repositories/booking.repository'
 import { ok, created, badRequest, serverError } from '../utils/response'
-import { pushNotification } from '../sockets'
+import { pushNotification, ioInstance } from '../sockets'
 
 export const bookRide = async (req: AuthRequest, res: Response) => {
   try {
     const { rideId, seats } = req.body
     if (!rideId) return badRequest(res, 'rideId required')
     const result = await repo.createBooking(rideId, req.user!.userId, seats || 1)
+    const driverId = result.booking.ride.driver.id
     // Notify driver
     await pushNotification(
-      result.booking.ride.driver.id,
+      driverId,
       'New Booking!',
-      `${result.booking.ride.driver.name ? 'A passenger' : 'Someone'} booked a seat on your ride`
+      `A passenger booked a seat on your ride`
     ).catch(() => {})
+    // Emit booking:new to driver's personal room so their Home refreshes
+    ioInstance?.to(`user:${driverId}`).emit('booking:new', { tripId: result.trip.id })
+    // Also emit to passenger's personal room so their Home shows the new upcoming trip
+    ioInstance?.to(`user:${req.user!.userId}`).emit('booking:new', { tripId: result.trip.id })
     return created(res, result)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : ''

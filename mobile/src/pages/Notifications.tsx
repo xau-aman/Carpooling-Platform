@@ -1,30 +1,63 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Bell, CheckCheck, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Bell, CheckCheck, RefreshCw, Navigation } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { connectSocket } from '../lib/socket'
+import { useAuth } from '../context/AuthContext'
 
 interface Notif { id: string; title: string; body: string; isRead: boolean; createdAt: string }
+interface ActiveTrip {
+  id: string
+  ride: { pickupAddress: string; destAddress: string; farePerSeat: number; distanceKm?: number }
+}
 
 export default function Notifications() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [activeTrip, setActiveTrip] = useState<ActiveTrip | null>(null)
 
   const load = () => api.get('/notifications').then(r => setNotifs(r.data.data)).finally(() => setLoading(false))
   const handleRefresh = () => {
     setRefreshing(true)
-    api.get('/notifications').then(r => setNotifs(r.data.data)).finally(() => setRefreshing(false))
+    Promise.all([
+      api.get('/notifications').then(r => setNotifs(r.data.data)),
+      api.get('/trips').then(r => {
+        const live = r.data.data.find((t: { status: string }) => t.status === 'IN_PROGRESS') as ActiveTrip | undefined
+        setActiveTrip(live ?? null)
+      }),
+    ]).finally(() => setRefreshing(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    api.get('/trips').then(r => {
+      const live = r.data.data.find((t: { status: string }) => t.status === 'IN_PROGRESS') as ActiveTrip | undefined
+      setActiveTrip(live ?? null)
+    }).catch(() => {})
+  }, [])
 
   // Realtime: reload when new notification arrives
   useEffect(() => {
+    if (!user) return
     const s = connectSocket()
     s.on('notification:new', load)
-    return () => { s.off('notification:new', load) }
-  }, [])
+    s.on('trip:started', () => api.get('/trips').then(r => {
+      const live = r.data.data.find((t: { status: string }) => t.status === 'IN_PROGRESS') as ActiveTrip | undefined
+      setActiveTrip(live ?? null)
+    }))
+    s.on('trip:completed', () => setActiveTrip(null))
+    s.on('trip:payment_done', () => setActiveTrip(null))
+    s.on('trip:cancelled', () => setActiveTrip(null))
+    return () => {
+      s.off('notification:new', load)
+      s.off('trip:started')
+      s.off('trip:completed')
+      s.off('trip:payment_done')
+      s.off('trip:cancelled')
+    }
+  }, [user?.id])
 
   const markAllRead = async () => {
     await api.patch('/notifications/read-all').catch(() => {})
@@ -60,6 +93,37 @@ export default function Notifications() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        {/* Live trip card — Rapido style */}
+        {activeTrip && (
+          <button onClick={() => navigate(`/trip/${activeTrip.id}`)}
+            className="w-full rounded-2xl overflow-hidden mb-2 active:scale-[0.99] transition-transform"
+            style={{ background: 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)' }}>
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                </span>
+                <span className="text-white font-display font-black text-sm">LIVE TRIP</span>
+              </div>
+              <div className="flex items-center gap-1 text-white/90 text-xs font-bold">
+                <Navigation size={12} /> Track
+              </div>
+            </div>
+            <div className="px-4 pb-3 flex items-center gap-2">
+              <div className="flex flex-col items-center gap-0.5 shrink-0">
+                <div className="w-2 h-2 rounded-full bg-white" />
+                <div className="w-0.5 h-4 bg-white/50" />
+                <div className="w-2 h-2 rounded-full border-2 border-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-xs truncate">{activeTrip.ride.pickupAddress.split(',')[0]}</p>
+                <p className="text-white/70 text-xs truncate mt-1">{activeTrip.ride.destAddress.split(',')[0]}</p>
+              </div>
+              <p className="text-white font-display font-black text-lg shrink-0">₹{activeTrip.ride.farePerSeat}</p>
+            </div>
+          </button>
+        )}
         {loading && [1,2,3].map(i => <div key={i} className="skeleton h-20 rounded-2xl" />)}
 
         {!loading && notifs.length === 0 && (

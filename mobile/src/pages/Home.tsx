@@ -46,30 +46,41 @@ export default function Home() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadData])
 
-  // Real-time: listen for trip status changes on home screen
+  // Real-time: listen for ALL trip status changes on home screen
   useEffect(() => {
     if (!user) return
     const s = connectSocket()
     s.emit('user:join', user.id)
 
-    const refresh = () => api.get('/trips').then(r => setTrips(r.data.data))
+    const refreshTrips = () => api.get('/trips').then(r => setTrips(r.data.data))
+    const refreshAll = () => Promise.all([
+      api.get('/trips').then(r => setTrips(r.data.data)),
+      api.get('/wallet').then(r => setWallet(r.data.data)),
+    ])
 
-    s.on('trip:started',      refresh)
-    s.on('trip:completed',    refresh)
-    s.on('trip:cancelled',    refresh)
-    s.on('trip:payment_done', refresh)
-    s.on('booking:new',       refresh)
+    // trip:otp — driver started, passenger's trip moves to STARTED (OTP Pending)
+    s.on('trip:otp',          refreshTrips)
+    s.on('trip:started',      refreshTrips)
+    s.on('trip:completed',    refreshTrips)
+    s.on('trip:cancelled',    refreshTrips)
+    s.on('trip:payment_done', refreshTrips)
+    s.on('booking:new',       refreshTrips)
+    s.on('booking:cancelled', refreshTrips)
+    s.on('payment:received',  refreshAll)
 
-    // Wallet update on payment
-    s.on('payment:received', () => api.get('/wallet').then(r => setWallet(r.data.data)))
+    const rejoin = () => s.emit('user:join', user.id)
+    s.on('connect', rejoin)
 
     return () => {
-      s.off('trip:started',      refresh)
-      s.off('trip:completed',    refresh)
-      s.off('trip:cancelled',    refresh)
-      s.off('trip:payment_done', refresh)
-      s.off('booking:new',       refresh)
-      s.off('payment:received')
+      s.off('connect',          rejoin)
+      s.off('trip:otp',         refreshTrips)
+      s.off('trip:started',     refreshTrips)
+      s.off('trip:completed',   refreshTrips)
+      s.off('trip:cancelled',   refreshTrips)
+      s.off('trip:payment_done',refreshTrips)
+      s.off('booking:new',      refreshTrips)
+      s.off('booking:cancelled',refreshTrips)
+      s.off('payment:received', refreshAll)
     }
   }, [user?.id])
 
@@ -124,20 +135,40 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Active trip banner */}
+        {/* Active trip banner — Rapido style */}
         {active.length > 0 && (
           <div className="px-4 mt-3">
             <button onClick={() => navigate(`/trip/${active[0].id}`)}
-              className="w-full rounded-2xl p-4 flex items-center justify-between active:scale-[0.99]"
-              style={{ background: '#f97316' }}>
-              <div>
-                <p className="font-display font-bold text-white text-sm">Live Trip</p>
-                <p className="text-white/80 text-xs mt-0.5">
-                  {active[0].ride.pickupAddress.split(',')[0]} → {active[0].ride.destAddress.split(',')[0]}
-                </p>
+              className="w-full rounded-2xl overflow-hidden active:scale-[0.99] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)' }}>
+              {/* Top bar */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                  </span>
+                  <span className="text-white font-display font-black text-sm tracking-wide">LIVE TRIP</span>
+                </div>
+                <div className="flex items-center gap-1 text-white/90 text-xs font-bold">
+                  Track <ChevronRight size={14} />
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-white font-bold text-sm">
-                Track <ChevronRight size={16} />
+              {/* Route */}
+              <div className="px-4 pb-3 flex items-center gap-2">
+                <div className="flex flex-col items-center gap-0.5 shrink-0">
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                  <div className="w-0.5 h-4 bg-white/50" />
+                  <div className="w-2 h-2 rounded-full border-2 border-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold text-xs truncate">{active[0].ride.pickupAddress.split(',')[0]}</p>
+                  <p className="text-white/70 text-xs truncate mt-1">{active[0].ride.destAddress.split(',')[0]}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-white font-display font-black text-lg">₹{active[0].ride.farePerSeat}</p>
+                  {active[0].ride.distanceKm && <p className="text-white/70 text-xs">{active[0].ride.distanceKm}km</p>}
+                </div>
               </div>
             </button>
           </div>

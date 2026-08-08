@@ -26,6 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const didInit = useRef(false)
 
+  const requestPerms = () => {
+    requestNotificationPermission()
+    if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
+  }
+
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
@@ -37,8 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const u = JSON.parse(savedUser)
         tokenStore.set(saved); setToken(saved); setUser(u)
         setLoading(false)
-        requestNotificationPermission()
-        if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
+        requestPerms()
         connectSocket(); setSocketUserId(u.id)
         return
       } catch {}
@@ -49,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { token: t, user: u } = r.data.data
         tokenStore.set(t); setToken(t); setUser(u)
         localStorage.setItem('gt_user', JSON.stringify(u))
-        requestNotificationPermission()
+        requestPerms()
         connectSocket(); setSocketUserId(u.id)
       })
       .catch(() => {})
@@ -59,8 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (t: string, u: User) => {
     tokenStore.set(t); setToken(t); setUser(u)
     localStorage.setItem('gt_user', JSON.stringify(u))
-    requestNotificationPermission()
-    if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
+    requestPerms()
     connectSocket(); setSocketUserId(u.id)
   }
 
