@@ -59,12 +59,12 @@ const LAST_NAMES = ['Patel', 'Shah', 'Mehta', 'Joshi', 'Desai', 'Modi', 'Trivedi
 async function main() {
   console.log('🌱 Seeding GoTogether with rich dummy data...')
 
-  // ── Wipe ──────────────────────────────────────────────────────────────────
+  // ── Wipe (correct FK order) ───────────────────────────────────────────────
   await prisma.payment.deleteMany()
   await prisma.walletTransaction.deleteMany()
   await prisma.chatMessage.deleteMany()
-  await prisma.tripParticipant.deleteMany()
   await prisma.tripLocation.deleteMany()
+  await prisma.tripParticipant.deleteMany()
   await prisma.trip.deleteMany()
   await prisma.rideBooking.deleteMany()
   await prisma.ride.deleteMany()

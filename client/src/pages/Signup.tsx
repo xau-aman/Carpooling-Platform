@@ -173,7 +173,7 @@ export default function Signup() {
                     <label className="block text-sm font-semibold text-[#495057] mb-1.5">Email address</label>
                     <div className="relative">
                       <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#868E96]" />
-                      <input type="email" placeholder="you@odoo.com" value={form.email} onChange={set('email')}
+                      <input type="email" placeholder="you@gotogether.com" value={form.email} onChange={set('email')}
                         className="input pl-11" required autoComplete="email" />
                     </div>
                   </div>

@@ -120,7 +120,7 @@ export default function Login() {
               <div className="relative">
                 <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#868E96]" />
                 <input
-                  type="email" placeholder="you@odoo.com"
+                  type="email" placeholder="you@gotogether.com"
                   value={form.email} onChange={set('email')}
                   className="input pl-11" required autoComplete="email"
                 />
