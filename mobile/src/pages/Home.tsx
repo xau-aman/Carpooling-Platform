@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Car, MapPin, IndianRupee, Leaf, TrendingUp, ChevronRight, Zap, Shield, Clock, Bell, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -22,14 +22,19 @@ export default function Home() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const loadData = () => Promise.all([
+  const loadData = useCallback(() => Promise.all([
     api.get('/trips').then(r => setTrips(r.data.data)),
     api.get('/wallet').then(r => setWallet(r.data.data)),
-  ]).finally(() => setLoading(false))
+  ]).finally(() => setLoading(false)), [])
 
+  useEffect(() => { loadData() }, [])
+
+  // Refresh when app comes back to foreground
   useEffect(() => {
-    loadData()
-  }, [])
+    const onVisible = () => { if (document.visibilityState === 'visible') loadData() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [loadData])
 
   // Real-time: listen for trip status changes on home screen
   useEffect(() => {
@@ -37,22 +42,23 @@ export default function Home() {
     const s = connectSocket()
     s.emit('user:join', user.id)
 
-    // Any trip event → reload trips list
     const refresh = () => api.get('/trips').then(r => setTrips(r.data.data))
 
-    s.on('trip:completed', refresh)
-    s.on('trip:cancelled', refresh)
+    s.on('trip:started',      refresh)
+    s.on('trip:completed',    refresh)
+    s.on('trip:cancelled',    refresh)
     s.on('trip:payment_done', refresh)
-    s.on('booking:new', refresh)
+    s.on('booking:new',       refresh)
 
     // Wallet update on payment
     s.on('payment:received', () => api.get('/wallet').then(r => setWallet(r.data.data)))
 
     return () => {
-      s.off('trip:completed', refresh)
-      s.off('trip:cancelled', refresh)
+      s.off('trip:started',      refresh)
+      s.off('trip:completed',    refresh)
+      s.off('trip:cancelled',    refresh)
       s.off('trip:payment_done', refresh)
-      s.off('booking:new', refresh)
+      s.off('booking:new',       refresh)
       s.off('payment:received')
     }
   }, [user?.id])

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Car, ChevronRight, MapPin, Clock } from 'lucide-react'
 import api from '../lib/api'
+import { connectSocket } from '../lib/socket'
+import { useAuth } from '../context/AuthContext'
 
 interface Trip {
   id: string; status: string; createdAt: string
@@ -14,7 +16,7 @@ interface Trip {
 
 const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
   BOOKED:            { label: 'Upcoming',        bg: '#EFF6FF', color: '#2563EB' },
-  STARTED:           { label: 'Starting',        bg: '#EFF6FF', color: '#2563EB' },
+  STARTED:           { label: 'OTP Pending',     bg: '#FFFBEB', color: '#D97706' },
   IN_PROGRESS:       { label: '🔴 Live',         bg: '#FFF7ED', color: '#EA580C' },
   PAYMENT_PENDING:   { label: 'Pay Now',         bg: '#FEF9C3', color: '#CA8A04' },
   PAYMENT_COMPLETED: { label: 'Completed',       bg: '#F0FDF4', color: '#16A34A' },
@@ -24,13 +26,48 @@ const statusConfig: Record<string, { label: string; bg: string; color: string }>
 
 export default function MyTrips() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'active' | 'past'>('active')
 
+  const refresh = useCallback(() =>
+    api.get('/trips').then(r => setTrips(r.data.data)).catch(() => {})
+  , [])
+
   useEffect(() => {
-    api.get('/trips').then(r => setTrips(r.data.data)).finally(() => setLoading(false))
+    refresh().finally(() => setLoading(false))
   }, [])
+
+  // Refresh on page focus (when navigating back from TripDetail)
+  useEffect(() => {
+    const onFocus = () => refresh()
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh()
+    })
+    return () => {
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [refresh])
+
+  // Real-time socket updates
+  useEffect(() => {
+    if (!user) return
+    const s = connectSocket()
+    s.on('trip:started',      () => refresh())
+    s.on('trip:completed',    () => refresh())
+    s.on('trip:cancelled',    () => refresh())
+    s.on('trip:payment_done', () => refresh())
+    s.on('booking:cancelled', () => refresh())
+    return () => {
+      s.off('trip:started')
+      s.off('trip:completed')
+      s.off('trip:cancelled')
+      s.off('trip:payment_done')
+      s.off('booking:cancelled')
+    }
+  }, [user?.id, refresh])
 
   const active = trips.filter(t => ['BOOKED', 'STARTED', 'IN_PROGRESS', 'PAYMENT_PENDING'].includes(t.status))
   const past = trips.filter(t => ['PAYMENT_COMPLETED', 'COMPLETED', 'CANCELLED'].includes(t.status))
