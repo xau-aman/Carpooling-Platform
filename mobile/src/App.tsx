@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { useEffect } from 'react'
 import { connectSocket } from './lib/socket'
-import { showLocalNotification } from './lib/notifications'
+import { showLocalNotification, showLiveTripNotification, cancelLiveTripNotification } from './lib/notifications'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Home from './pages/Home'
@@ -81,17 +81,40 @@ function NotificationBridge() {
   useEffect(() => {
     if (!user) return
     const s = connectSocket()
-    // Emit user:join now and on every reconnect
     s.emit('user:join', user.id)
     const rejoin = () => s.emit('user:join', user.id)
     s.on('connect', rejoin)
-    const handler = (d: { title: string; body: string }) => {
+
+    // Regular push notifications from server
+    s.on('notification:new', (d: { title: string; body: string }) => {
       showLocalNotification(d.title, d.body)
-    }
-    s.on('notification:new', handler)
+    })
+
+    // Live trip progress notification — updates in-place like Rapido
+    s.on('trip:otp', (d: { tripId: string; otp: string; from?: string; to?: string }) => {
+      showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'STARTED')
+    })
+    s.on('trip:started', (d: { tripId: string; from?: string; to?: string }) => {
+      showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'IN_PROGRESS')
+    })
+    s.on('trip:completed', (d: { tripId: string; status?: string; from?: string; to?: string }) => {
+      if (d.status === 'PAYMENT_PENDING') {
+        showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'PAYMENT_PENDING')
+      } else {
+        cancelLiveTripNotification()
+      }
+    })
+    s.on('trip:payment_done', () => cancelLiveTripNotification())
+    s.on('trip:cancelled',    () => cancelLiveTripNotification())
+
     return () => {
       s.off('connect', rejoin)
-      s.off('notification:new', handler)
+      s.off('notification:new')
+      s.off('trip:otp')
+      s.off('trip:started')
+      s.off('trip:completed')
+      s.off('trip:payment_done')
+      s.off('trip:cancelled')
     }
   }, [user?.id])
   return null

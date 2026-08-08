@@ -44,7 +44,10 @@ export const startTrip = async (req: AuthRequest, res: Response) => {
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
       // Emit to user personal room AND trip room — covers both connected states
-      ioInstance?.to(`user:${p.userId}`).to(`trip:${trip.id}`).emit('trip:otp', { tripId: trip.id, otp })
+      ioInstance?.to(`user:${p.userId}`).to(`trip:${trip.id}`).emit('trip:otp', {
+        tripId: trip.id, otp,
+        from: trip.ride.pickupAddress, to: trip.ride.destAddress,
+      })
       await pushNotification(p.userId, 'Your Ride OTP', `Share OTP ${otp} with your driver to start the ride`).catch(() => {})
     }
 
@@ -65,7 +68,10 @@ export const verifyOtp = async (req: AuthRequest, res: Response) => {
     const updated = await repo.updateTripStatus(trip.id, 'IN_PROGRESS', { startedAt: new Date(), otpVerified: true })
     await prisma.ride.update({ where: { id: trip.rideId }, data: { status: 'IN_PROGRESS' } })
 
-    ioInstance?.to(`trip:${trip.id}`).emit('trip:started', { tripId: trip.id, status: 'IN_PROGRESS' })
+    ioInstance?.to(`trip:${trip.id}`).emit('trip:started', {
+      tripId: trip.id, status: 'IN_PROGRESS',
+      from: trip.ride.pickupAddress, to: trip.ride.destAddress,
+    })
 
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
@@ -92,7 +98,10 @@ export const completeTrip = async (req: AuthRequest, res: Response) => {
     const updated = await repo.updateTripStatus(trip.id, 'PAYMENT_PENDING', { completedAt: new Date() })
     await prisma.ride.update({ where: { id: trip.rideId }, data: { status: 'COMPLETED' } })
 
-    ioInstance?.to(`trip:${trip.id}`).emit('trip:completed', { tripId: trip.id, status: 'PAYMENT_PENDING', farePerSeat: trip.ride.farePerSeat })
+    ioInstance?.to(`trip:${trip.id}`).emit('trip:completed', {
+      tripId: trip.id, status: 'PAYMENT_PENDING', farePerSeat: trip.ride.farePerSeat,
+      from: trip.ride.pickupAddress, to: trip.ride.destAddress,
+    })
 
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {

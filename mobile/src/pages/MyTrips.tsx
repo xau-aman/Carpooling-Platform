@@ -61,17 +61,27 @@ export default function MyTrips() {
   useEffect(() => {
     if (!user) return
     const s = connectSocket()
+    s.emit('user:join', user.id)
+    const rejoin = () => { s.emit('user:join', user.id); refresh() }
+    s.on('connect',           rejoin)
+    s.on('trip:otp',          () => refresh())
     s.on('trip:started',      () => refresh())
     s.on('trip:completed',    () => refresh())
     s.on('trip:cancelled',    () => refresh())
     s.on('trip:payment_done', () => refresh())
+    s.on('booking:new',       () => refresh())
     s.on('booking:cancelled', () => refresh())
+    s.on('payment:received',  () => refresh())
     return () => {
+      s.off('connect',          rejoin)
+      s.off('trip:otp')
       s.off('trip:started')
       s.off('trip:completed')
       s.off('trip:cancelled')
       s.off('trip:payment_done')
+      s.off('booking:new')
       s.off('booking:cancelled')
+      s.off('payment:received')
     }
   }, [user?.id, refresh])
 
