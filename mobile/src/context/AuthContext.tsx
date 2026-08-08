@@ -3,8 +3,6 @@ import { authApi } from '../lib/api'
 import { tokenStore } from '../lib/tokenStore'
 import { requestNotificationPermission } from '../lib/notifications'
 import { connectSocket, setSocketUserId } from '../lib/socket'
-import { Geolocation } from '@capacitor/geolocation'
-import { Capacitor } from '@capacitor/core'
 
 interface User {
   id: string; email: string; name: string; phone?: string
@@ -26,19 +24,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const didInit = useRef(false)
 
-  const requestPerms = () => {
-    // Only ask once — track in localStorage so we don't prompt on every launch
-    const asked = localStorage.getItem('gt_perms_asked')
-    if (!asked) {
-      localStorage.setItem('gt_perms_asked', '1')
-      requestNotificationPermission()
-      if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
-    } else {
-      // Already asked before — just silently re-check/grant channels without prompting
-      requestNotificationPermission()
-    }
-  }
-
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
@@ -50,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const u = JSON.parse(savedUser)
         tokenStore.set(saved); setToken(saved); setUser(u)
         setLoading(false)
-        requestPerms()
+        requestNotificationPermission()
         connectSocket(); setSocketUserId(u.id)
         return
       } catch {}
@@ -61,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { token: t, user: u } = r.data.data
         tokenStore.set(t); setToken(t); setUser(u)
         localStorage.setItem('gt_user', JSON.stringify(u))
-        requestPerms()
+        requestNotificationPermission()
         connectSocket(); setSocketUserId(u.id)
       })
       .catch(() => {})
@@ -71,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (t: string, u: User) => {
     tokenStore.set(t); setToken(t); setUser(u)
     localStorage.setItem('gt_user', JSON.stringify(u))
-    requestPerms()
+    requestNotificationPermission()
     connectSocket(); setSocketUserId(u.id)
   }
 

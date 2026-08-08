@@ -43,13 +43,13 @@ async function ensureChannel() {
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
   try {
+    // Channels must exist before scheduling — create them here
     await ensureChannel()
+    // Permission was already requested natively in MainActivity on launch
+    // Just check current state and cache it
     const { display } = await LocalNotifications.checkPermissions()
-    if (display === 'granted') { permissionGranted = true; return true }
-    if (display === 'denied') { return false }  // don't cache false — user may enable in settings
-    const result = await LocalNotifications.requestPermissions()
-    if (result.display === 'granted') { permissionGranted = true }
-    return result.display === 'granted'
+    if (display === 'granted') { permissionGranted = true }
+    return display === 'granted'
   } catch {
     return false
   }
@@ -60,10 +60,7 @@ async function checkPermission(): Promise<boolean> {
   if (permissionGranted) return true
   try {
     const { display } = await LocalNotifications.checkPermissions()
-    if (display === 'granted') { permissionGranted = true; return true }
-    // Try requesting again — user may have enabled in settings
-    const result = await LocalNotifications.requestPermissions()
-    permissionGranted = result.display === 'granted'
+    permissionGranted = display === 'granted'
     return permissionGranted
   } catch { return false }
 }
