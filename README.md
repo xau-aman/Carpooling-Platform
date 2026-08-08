@@ -6,7 +6,7 @@
 
 **A full-stack enterprise carpooling platform built for the Odoo Hackathon 2025**
 
-[![Live Demo](https://img.shields.io/badge/🌐_Web_App-Live_on_Vercel-black?style=for-the-badge)](https://gotogether-carpool.vercel.app)
+[![Live Demo](https://img.shields.io/badge/🌐_Web_App-Live_on_Vercel-black?style=for-the-badge)]([https://gotogether-carpool.vercel.app](https://carpooling-platform-client.vercel.app))
 [![API Server](https://img.shields.io/badge/⚡_API-Live_on_Render-orange?style=for-the-badge)](https://carpooling-platform.onrender.com/api/v1/health)
 [![Mobile APK](https://img.shields.io/badge/📱_Android_APK-Download-green?style=for-the-badge)](#mobile-apk)
 
@@ -507,7 +507,7 @@ Built for **Odoo Hackathon 2026** 🏆
 
 <div align="center">
   <strong>GoTogether — Smarter commutes, together.</strong><br/>
-  <a href="https://gotogether-carpool.vercel.app">Live Demo</a> ·
+  <a href="https://carpooling-platform-client.vercel.app">Live Demo</a> ·
   <a href="https://carpooling-platform.onrender.com/api/v1/health">API Health</a> ·
   <a href="https://github.com/xau-aman/Carpooling-Platform">GitHub</a>
 </div>
