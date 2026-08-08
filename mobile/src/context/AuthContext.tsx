@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { authApi } from '../lib/api'
 import { tokenStore } from '../lib/tokenStore'
 import { requestNotificationPermission } from '../lib/notifications'
+import { connectSocket, setSocketUserId } from '../lib/socket'
 
 interface User {
   id: string; email: string; name: string; phone?: string
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenStore.set(saved); setToken(saved); setUser(u)
         setLoading(false)
         requestNotificationPermission()
+        connectSocket(); setSocketUserId(u.id)
         return
       } catch {}
     }
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenStore.set(t); setToken(t); setUser(u)
         localStorage.setItem('gt_user', JSON.stringify(u))
         requestNotificationPermission()
+        connectSocket(); setSocketUserId(u.id)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -54,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.set(t); setToken(t); setUser(u)
     localStorage.setItem('gt_user', JSON.stringify(u))
     requestNotificationPermission()
+    connectSocket(); setSocketUserId(u.id)
   }
 
   const logout = () => {

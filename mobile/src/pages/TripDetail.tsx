@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Geolocation } from '@capacitor/geolocation'
 import { ArrowLeft, Phone, MessageCircle, Play, CheckCircle, Navigation, Send, X } from 'lucide-react'
 import api from '../lib/api'
 import { connectSocket, getSocket } from '../lib/socket'
@@ -79,24 +80,34 @@ export default function TripDetail() {
     if (!user) return
     const s = connectSocket()
     s.emit('user:join', user.id)
-    // Re-join on reconnect
-    s.on('connect', () => s.emit('user:join', user.id))
-    return () => { s.off('connect') }
+    // Re-join on reconnect so notifications/OTP always arrive
+    const rejoin = () => s.emit('user:join', user.id)
+    s.on('connect', rejoin)
+    return () => { s.off('connect', rejoin) }
   }, [user?.id])
 
-  useEffect(() => {
+  const loadTrip = useCallback(() => {
     if (!id) return
     api.get(`/trips/${id}`)
       .then(r => {
         const t = r.data.data
         setTrip(t)
         setMsgs(t.messages || [])
-        // If trip already STARTED and passenger, OTP is in trip data
+        // Always restore OTP from trip data if status is STARTED
         if (t.status === 'STARTED' && t.otp) setPassengerOtp(t.otp)
       })
       .catch(() => toast('Trip not found', 'error'))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => { loadTrip() }, [loadTrip])
+
+  // Re-fetch when app comes back to foreground (fixes stale status after back navigation)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') loadTrip() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [loadTrip])
 
   useEffect(() => {
     if (!trip || !user) return
@@ -146,17 +157,28 @@ export default function TripDetail() {
     if (!trip) return
     setBusy(true)
     try {
+      // Request location permission before starting trip
+      const perm = await Geolocation.requestPermissions()
+      if (perm.location !== 'granted') {
+        toast('Location permission is required for live tracking', 'error')
+        setBusy(false)
+        return
+      }
+
       const r = await api.post(`/trips/${trip.id}/start`)
       setTrip(t => t ? { ...t, status: 'STARTED' } : t)
       toast(`OTP sent to passenger`, 'success')
-      if (navigator.geolocation) {
-        watchRef.current = navigator.geolocation.watchPosition(pos => {
-          getSocket().emit('trip:location', { tripId: trip.id, lat: pos.coords.latitude, lng: pos.coords.longitude })
-          setDistM(Math.round(haversineM(pos.coords.latitude, pos.coords.longitude, trip.ride.destLat, trip.ride.destLng)))
-        }, () => {}, { enableHighAccuracy: true })
-      }
-      // Also set driver location to pickup initially
       setDriverLoc({ lat: trip.ride.pickupLat, lng: trip.ride.pickupLng })
+
+      // Capacitor watchPosition works correctly on Android with runtime perms
+      const watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (pos, err) => {
+        if (err || !pos) return
+        const { latitude: lat, longitude: lng } = pos.coords
+        getSocket().emit('trip:location', { tripId: trip.id, lat, lng })
+        setDriverLoc({ lat, lng })
+        setDistM(Math.round(haversineM(lat, lng, trip.ride.destLat, trip.ride.destLng)))
+      })
+      watchRef.current = watchId as unknown as number
       void r
     } catch { toast('Failed to start', 'error') }
     finally { setBusy(false) }
@@ -196,7 +218,7 @@ export default function TripDetail() {
       await api.post(`/trips/${trip.id}/complete`, { lat: driverLoc?.lat, lng: driverLoc?.lng, simulated })
       setTrip(t => t ? { ...t, status: 'PAYMENT_PENDING' } : t)
       setMsgs([])
-      if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current)
+      if (watchRef.current) await Geolocation.clearWatch({ id: String(watchRef.current) })
       toast('Trip completed!', 'success')
     } catch (e: unknown) {
       toast((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed', 'error')

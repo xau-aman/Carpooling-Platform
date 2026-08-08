@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapPin, Clock, Car, ChevronRight, AlertCircle } from 'lucide-react'
 import api from '../lib/api'
 import Button from '../components/Button'
 import { Badge, LoadingState, EmptyState, PageHeader } from '../components/ui'
-import { Trip, TripStatus } from '../types'
+import { Trip } from '../types'
 import { useAuth } from '../context/AuthContext'
+import { connectSocket } from '../lib/socket'
 
 type Tab = 'upcoming' | 'active' | 'completed'
 
@@ -26,17 +27,41 @@ export default function MyTrips() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('upcoming')
 
+  const refresh = useCallback(() =>
+    api.get('/trips').then(r => setTrips(r.data.data)).catch(() => {})
+  , [])
+
+  useEffect(() => { refresh().finally(() => setLoading(false)) }, [])
+
   useEffect(() => {
-    api.get('/trips').then(r => setTrips(r.data.data)).finally(() => setLoading(false))
-  }, [])
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refresh])
+
+  useEffect(() => {
+    const s = connectSocket()
+    s.on('trip:started',      refresh)
+    s.on('trip:completed',    refresh)
+    s.on('trip:cancelled',    refresh)
+    s.on('trip:payment_done', refresh)
+    s.on('booking:cancelled', refresh)
+    return () => {
+      s.off('trip:started',      refresh)
+      s.off('trip:completed',    refresh)
+      s.off('trip:cancelled',    refresh)
+      s.off('trip:payment_done', refresh)
+      s.off('booking:cancelled', refresh)
+    }
+  }, [refresh])
+
+  if (loading) return <LoadingState />
 
   const upcoming  = trips.filter(t => ['BOOKED', 'STARTED'].includes(t.status))
   const active    = trips.filter(t => t.status === 'IN_PROGRESS')
   const completed = trips.filter(t => ['COMPLETED', 'PAYMENT_COMPLETED', 'PAYMENT_PENDING', 'CANCELLED'].includes(t.status))
 
   const filtered = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
-
-  if (loading) return <LoadingState />
 
   return (
     <div className="max-w-2xl mx-auto">

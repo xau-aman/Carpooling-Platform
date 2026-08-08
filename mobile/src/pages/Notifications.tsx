@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, Bell, CheckCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { connectSocket } from '../lib/socket'
 
 interface Notif { id: string; title: string; body: string; isRead: boolean; createdAt: string }
 
@@ -12,6 +13,13 @@ export default function Notifications() {
 
   const load = () => api.get('/notifications').then(r => setNotifs(r.data.data)).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
+
+  // Realtime: reload when new notification arrives
+  useEffect(() => {
+    const s = connectSocket()
+    s.on('notification:new', load)
+    return () => { s.off('notification:new', load) }
+  }, [])
 
   const markAllRead = async () => {
     await api.patch('/notifications/read-all').catch(() => {})

@@ -42,6 +42,19 @@ export default function Payment() {
       setRzpOrder(r.data.data)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      // If Razorpay not configured on server, fall back to direct payment (demo mode)
+      if (msg?.includes('not configured') || msg?.includes('Razorpay')) {
+        try {
+          await api.post('/payments/pay', { bookingId, tripId, amount: amt, method: 'CASH' })
+          setDone(true)
+          return
+        } catch (e2: unknown) {
+          const m2 = (e2 as { response?: { data?: { message?: string } } })?.response?.data?.message
+          setError(m2 || 'Payment failed')
+          toast(m2 || 'Payment failed', 'error')
+          return
+        }
+      }
       setError(msg || 'Could not initiate payment')
       toast(msg || 'Failed', 'error')
     } finally { setLoading(false) }

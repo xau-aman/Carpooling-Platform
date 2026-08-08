@@ -96,8 +96,14 @@ export default function FindRide() {
   const [dest, setDest] = useState<LocationResult | null>(null)
   const [pickupLabel, setPickupLabel] = useState('')
   const [destLabel, setDestLabel] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState('09:00')
+  const [date, setDate] = useState(() => {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    return now.toISOString().split('T')[0]
+  })
+  const [time, setTime] = useState(() => {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+  })
   const [seats, setSeats] = useState('1')
   const [rides, setRides] = useState<Ride[]>([])
   const [loading, setLoading] = useState(false)
