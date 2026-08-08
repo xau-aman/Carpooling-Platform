@@ -43,13 +43,14 @@ export const startTrip = async (req: AuthRequest, res: Response) => {
 
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
-      // Emit to user personal room AND trip room — covers both connected states
       ioInstance?.to(`user:${p.userId}`).to(`trip:${trip.id}`).emit('trip:otp', {
         tripId: trip.id, otp,
         from: trip.ride.pickupAddress, to: trip.ride.destAddress,
       })
-      await pushNotification(p.userId, 'Your Ride OTP', `Share OTP ${otp} with your driver to start the ride`).catch(() => {})
+      await pushNotification(p.userId, '🔑 Your Ride OTP', `Share OTP ${otp} with your driver to start the ride`).catch(() => {})
     }
+    // Notify driver that OTP has been sent
+    await pushNotification(trip.ride.driver.id, '🔔 OTP Sent', `OTP sent to ${passengers.length} passenger(s). Ask them for the code.`).catch(() => {})
 
     ioInstance?.to(`trip:${trip.id}`).emit('trip:otp_sent', { tripId: trip.id })
     return ok(res, { ...updated, otp }, 'OTP sent to passengers')
@@ -73,9 +74,12 @@ export const verifyOtp = async (req: AuthRequest, res: Response) => {
       from: trip.ride.pickupAddress, to: trip.ride.destAddress,
     })
 
+    // Notify all participants — driver + passengers
+    const driverId = trip.ride.driver.id
+    await pushNotification(driverId, '🚗 Trip Started!', 'OTP verified. Ride is now in progress.').catch(() => {})
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
-      await pushNotification(p.userId, 'Ride Started!', 'Your ride is now in progress.').catch(() => {})
+      await pushNotification(p.userId, '🚗 Ride Started!', 'Your ride is now in progress.').catch(() => {})
     }
 
     return ok(res, updated, 'Trip started')
@@ -103,9 +107,11 @@ export const completeTrip = async (req: AuthRequest, res: Response) => {
       from: trip.ride.pickupAddress, to: trip.ride.destAddress,
     })
 
+    // Notify all participants — driver + passengers
+    await pushNotification(trip.ride.driver.id, '✅ Trip Completed', `Waiting for passenger payment of ₹${trip.ride.farePerSeat}`).catch(() => {})
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
-      await pushNotification(p.userId, 'Trip Completed', `Pay Rs.${trip.ride.farePerSeat} to complete your ride`).catch(() => {})
+      await pushNotification(p.userId, '💳 Trip Completed', `Pay ₹${trip.ride.farePerSeat} to complete your ride`).catch(() => {})
     }
 
     return ok(res, updated)

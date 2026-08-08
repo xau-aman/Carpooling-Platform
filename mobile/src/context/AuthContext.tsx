@@ -27,8 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const didInit = useRef(false)
 
   const requestPerms = () => {
-    requestNotificationPermission()
-    if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
+    // Only ask once — track in localStorage so we don't prompt on every launch
+    const asked = localStorage.getItem('gt_perms_asked')
+    if (!asked) {
+      localStorage.setItem('gt_perms_asked', '1')
+      requestNotificationPermission()
+      if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
+    } else {
+      // Already asked before — just silently re-check/grant channels without prompting
+      requestNotificationPermission()
+    }
   }
 
   useEffect(() => {
