@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Geolocation } from '@capacitor/geolocation'
-import { ArrowLeft, Phone, MessageCircle, Play, CheckCircle, Navigation, Send, X } from 'lucide-react'
+import { ArrowLeft, Phone, MessageCircle, Play, CheckCircle, Navigation, Send, X, RefreshCw } from 'lucide-react'
 import api from '../lib/api'
 import { connectSocket, getSocket } from '../lib/socket'
 import { useAuth } from '../context/AuthContext'
@@ -283,6 +283,9 @@ export default function TripDetail() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="font-display font-bold text-lg flex-1">Trip Details</h1>
+        <button onClick={() => loadTrip()} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
+          <RefreshCw size={16} className="text-[#6b6b6b]" />
+        </button>
         <span className="m-badge" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
       </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, ChevronRight } from 'lucide-react'
+import { ArrowLeft, MapPin, ChevronRight, RefreshCw } from 'lucide-react'
 import api from '../lib/api'
 
 interface Trip {
@@ -26,14 +26,24 @@ export default function RideHistory() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('ALL')
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
+  const loadTrips = () => api.get('/trips').then(r => {
+    setTrips(r.data.data.filter((t: Trip) =>
+      ['COMPLETED', 'PAYMENT_COMPLETED', 'PAYMENT_PENDING', 'CANCELLED'].includes(t.status)
+    ))
+  }).finally(() => setLoading(false))
+
+  useEffect(() => { loadTrips() }, [])
+
+  const handleRefresh = () => {
+    setRefreshing(true)
     api.get('/trips').then(r => {
       setTrips(r.data.data.filter((t: Trip) =>
         ['COMPLETED', 'PAYMENT_COMPLETED', 'PAYMENT_PENDING', 'CANCELLED'].includes(t.status)
       ))
-    }).finally(() => setLoading(false))
-  }, [])
+    }).finally(() => setRefreshing(false))
+  }
 
   const filtered = trips.filter(t => {
     if (filter === 'COMPLETED') return ['COMPLETED', 'PAYMENT_COMPLETED'].includes(t.status)
@@ -48,7 +58,10 @@ export default function RideHistory() {
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="font-display font-bold text-xl">Ride History</h1>
+          <h1 className="font-display font-bold text-xl flex-1">Ride History</h1>
+          <button onClick={handleRefresh} disabled={refreshing} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
+            <RefreshCw size={16} className={`text-[#6b6b6b] ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
         <div className="flex gap-1 bg-[#f5f5f5] rounded-2xl p-1">
           {(['ALL', 'COMPLETED', 'CANCELLED'] as Filter[]).map(f => (

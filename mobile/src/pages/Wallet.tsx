@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Plus, Shield, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Plus, Shield, Zap, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { useToast } from '../context/ToastContext'
@@ -21,8 +21,13 @@ export default function WalletPage() {
   const [processing, setProcessing] = useState(false)
 
   const [demoLoading, setDemoLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = () => api.get('/wallet').then(r => setWallet(r.data.data)).finally(() => setLoading(false))
+  const handleRefresh = () => {
+    setRefreshing(true)
+    api.get('/wallet').then(r => setWallet(r.data.data)).finally(() => setRefreshing(false))
+  }
   useEffect(() => { load() }, [])
 
   // Demo: add ₹500 directly (no payment needed)
@@ -84,7 +89,10 @@ export default function WalletPage() {
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="font-display font-bold text-xl">Wallet</h1>
+          <h1 className="font-display font-bold text-xl flex-1">Wallet</h1>
+          <button onClick={handleRefresh} disabled={refreshing} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
+            <RefreshCw size={16} className={`text-[#6b6b6b] ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 

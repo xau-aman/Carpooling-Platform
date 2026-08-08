@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Car, MapPin, IndianRupee, Leaf, TrendingUp, ChevronRight, Zap, Shield, Clock, Bell, User } from 'lucide-react'
+import { Search, Car, MapPin, IndianRupee, Leaf, TrendingUp, ChevronRight, Zap, Shield, Clock, Bell, User, RefreshCw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import api from '../lib/api'
 import { connectSocket } from '../lib/socket'
@@ -21,11 +21,20 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const loadData = useCallback(() => Promise.all([
     api.get('/trips').then(r => setTrips(r.data.data)),
     api.get('/wallet').then(r => setWallet(r.data.data)),
   ]).finally(() => setLoading(false)), [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    Promise.all([
+      api.get('/trips').then(r => setTrips(r.data.data)),
+      api.get('/wallet').then(r => setWallet(r.data.data)),
+    ]).finally(() => setRefreshing(false))
+  }, [])
 
   useEffect(() => { loadData() }, [])
 
@@ -82,6 +91,9 @@ export default function Home() {
               <span className="font-display font-black text-base text-[#0f0f0f]">GoTogether</span>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={handleRefresh} disabled={refreshing} className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm active:scale-95">
+                <RefreshCw size={16} className={`text-[#6b6b6b] ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
               <button onClick={() => navigate('/notifications')} className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm active:scale-95">
                 <Bell size={18} className="text-[#6b6b6b]" />
               </button>

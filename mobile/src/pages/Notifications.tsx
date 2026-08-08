@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Bell, CheckCheck } from 'lucide-react'
+import { ArrowLeft, Bell, CheckCheck, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { connectSocket } from '../lib/socket'
@@ -10,8 +10,13 @@ export default function Notifications() {
   const navigate = useNavigate()
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = () => api.get('/notifications').then(r => setNotifs(r.data.data)).finally(() => setLoading(false))
+  const handleRefresh = () => {
+    setRefreshing(true)
+    api.get('/notifications').then(r => setNotifs(r.data.data)).finally(() => setRefreshing(false))
+  }
   useEffect(() => { load() }, [])
 
   // Realtime: reload when new notification arrives
@@ -41,11 +46,16 @@ export default function Notifications() {
               {unread > 0 && <p className="text-xs text-[#f97316] font-semibold">{unread} unread</p>}
             </div>
           </div>
-          {unread > 0 && (
-            <button onClick={markAllRead} className="flex items-center gap-1.5 text-xs font-bold text-[#714B67] px-3 py-2 rounded-full bg-[#f9f5ff] active:scale-95">
-              <CheckCheck size={14} /> Mark all read
+          <div className="flex items-center gap-2">
+            {unread > 0 && (
+              <button onClick={markAllRead} className="flex items-center gap-1.5 text-xs font-bold text-[#714B67] px-3 py-2 rounded-full bg-[#f9f5ff] active:scale-95">
+                <CheckCheck size={14} /> Mark all read
+              </button>
+            )}
+            <button onClick={handleRefresh} disabled={refreshing} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
+              <RefreshCw size={16} className={`text-[#6b6b6b] ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-          )}
+          </div>
         </div>
       </div>
 

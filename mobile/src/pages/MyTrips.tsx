@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Car, ChevronRight, MapPin, Clock } from 'lucide-react'
+import { Car, ChevronRight, MapPin, Clock, RefreshCw } from 'lucide-react'
 import api from '../lib/api'
 import { connectSocket } from '../lib/socket'
 import { useAuth } from '../context/AuthContext'
@@ -30,10 +30,16 @@ export default function MyTrips() {
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'active' | 'past'>('active')
+  const [refreshing, setRefreshing] = useState(false)
 
   const refresh = useCallback(() =>
     api.get('/trips').then(r => setTrips(r.data.data)).catch(() => {})
   , [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    refresh().finally(() => setRefreshing(false))
+  }, [refresh])
 
   useEffect(() => {
     refresh().finally(() => setLoading(false))
@@ -77,7 +83,12 @@ export default function MyTrips() {
     <div className="h-full flex flex-col bg-[#f5f5f5]">
       {/* Header */}
       <div className="bg-white px-4 pb-0 shadow-sm" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 16px)' }}>
-        <h1 className="font-display font-bold text-2xl text-[#0f0f0f] mb-4">My Trips</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="font-display font-bold text-2xl text-[#0f0f0f]">My Trips</h1>
+          <button onClick={handleRefresh} disabled={refreshing} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
+            <RefreshCw size={16} className={`text-[#6b6b6b] ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
         <div className="flex gap-1 bg-[#f5f5f5] rounded-2xl p-1">
           {(['active', 'past'] as const).map(t => (
             <button
