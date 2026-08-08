@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Car, MapPin, IndianRupee, Leaf, TrendingUp, ChevronRight, Zap, Shield, Clock } from 'lucide-react'
+import { Search, Car, MapPin, IndianRupee, Leaf, TrendingUp, ChevronRight, Zap, Shield, Clock, Bell, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import api from '../lib/api'
 
@@ -42,6 +42,21 @@ export default function Home() {
       <div className="page-enter">
         {/* Hero */}
         <div className="px-4 pt-4 pb-2" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 16px)' }}>
+          {/* Top bar */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <img src="/only_logo.png" alt="GoTogether" className="w-8 h-8 rounded-xl" />
+              <span className="font-display font-black text-base text-[#0f0f0f]">GoTogether</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigate('/notifications')} className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm active:scale-95">
+                <Bell size={18} className="text-[#6b6b6b]" />
+              </button>
+              <button onClick={() => navigate('/profile')} className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-sm active:scale-95" style={{ background: 'linear-gradient(135deg,#714B67,#875A7B)' }}>
+                {user?.name?.[0]?.toUpperCase() ?? <User size={16} />}
+              </button>
+            </div>
+          </div>
           <div className="rounded-3xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #714B67 0%, #875A7B 55%, #9B6B8F 100%)' }}>
             <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10" />
             <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/10" />

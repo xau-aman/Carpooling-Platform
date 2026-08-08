@@ -21,8 +21,9 @@ export default function Login() {
       const res = await api.post('/auth/login', { email, password })
       login(res.data.data.token, res.data.data.user)
       navigate('/home', { replace: true })
-    } catch {
-      toast('Invalid credentials', 'error')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast(msg || 'Network error — check WiFi', 'error')
     } finally {
       setLoading(false)
     }
@@ -38,10 +39,8 @@ export default function Login() {
     <div className="h-full flex flex-col bg-black overflow-hidden">
       {/* Top branding */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-12" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 48px)' }}>
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, #714B67, #875A7B)' }}>
-          <span className="text-3xl">🚗</span>
-        </div>
-        <h1 className="font-display font-black text-4xl text-white tracking-tight">WorkZen</h1>
+        <img src="/only_logo.png" alt="GoTogether" className="w-20 h-20 rounded-2xl mb-4" />
+        <h1 className="font-display font-black text-4xl text-white tracking-tight">GoTogether</h1>
         <p className="text-white/50 text-sm mt-2">Enterprise Carpooling</p>
       </div>
 

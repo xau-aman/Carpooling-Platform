@@ -5,6 +5,7 @@ import api from '../lib/api'
 import Button from '../components/Button'
 import { Badge, LoadingState, EmptyState, PageHeader } from '../components/ui'
 import { Trip, TripStatus } from '../types'
+import { useAuth } from '../context/AuthContext'
 
 type Tab = 'upcoming' | 'active' | 'completed'
 
@@ -20,6 +21,7 @@ const statusConfig: Record<string, { label: string; variant: 'info' | 'warning' 
 
 export default function MyTrips() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('upcoming')
@@ -95,7 +97,7 @@ export default function MyTrips() {
             const sc = statusConfig[trip.status] ?? { label: trip.status, variant: 'default' as const }
             const isPending = trip.status === 'PAYMENT_PENDING'
             const isLive = trip.status === 'IN_PROGRESS'
-            const booking = trip.ride.bookings?.find(b => b.userId)
+            const booking = trip.ride.bookings?.find(b => b.userId === user?.id)
 
             return (
               <div
@@ -154,7 +156,7 @@ export default function MyTrips() {
                   </div>
                   {isPending && booking && (
                     <button
-                      onClick={e => { e.stopPropagation(); navigate(`/payment/${booking.id}/${trip.id}/${trip.ride.farePerSeat}`) }}
+                      onClick={e => { e.stopPropagation(); navigate(`/payment/${booking.id}/${trip.id}/${trip.ride.farePerSeat * (booking.seats ?? 1)}`) }}
                       className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full text-white shrink-0"
                       style={{ background: '#F06050' }}
                     >

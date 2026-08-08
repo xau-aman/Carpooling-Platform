@@ -14,16 +14,22 @@ export const rechargeWallet = async (userId: string, amount: number) =>
       data: { balance: { increment: amount } },
     })
     await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        type: TransactionType.CREDIT,
-        reason: TransactionReason.RECHARGE,
-        amount,
-        note: 'Wallet recharge',
-      },
+      data: { walletId: wallet.id, type: TransactionType.CREDIT, reason: TransactionReason.RECHARGE, amount, note: 'Wallet recharge' },
     })
     return wallet
-  })
+  }, { timeout: 30000 })
+
+export const creditWallet = async (userId: string, amount: number, note: string) =>
+  prisma.$transaction(async (tx) => {
+    const wallet = await tx.wallet.update({
+      where: { userId },
+      data: { balance: { increment: amount } },
+    })
+    await tx.walletTransaction.create({
+      data: { walletId: wallet.id, type: TransactionType.CREDIT, reason: TransactionReason.RIDE_EARNING, amount, note },
+    })
+    return wallet
+  }, { timeout: 30000 })
 
 export const deductWallet = async (userId: string, amount: number, note: string) =>
   prisma.$transaction(async (tx) => {
@@ -34,13 +40,7 @@ export const deductWallet = async (userId: string, amount: number, note: string)
       data: { balance: { decrement: amount } },
     })
     await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        type: TransactionType.DEBIT,
-        reason: TransactionReason.RIDE_PAYMENT,
-        amount,
-        note,
-      },
+      data: { walletId: wallet.id, type: TransactionType.DEBIT, reason: TransactionReason.RIDE_PAYMENT, amount, note },
     })
     return updated
-  })
+  }, { timeout: 30000 })

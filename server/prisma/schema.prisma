@@ -71,6 +71,7 @@ enum TransactionType {
 enum TransactionReason {
   RECHARGE
   RIDE_PAYMENT
+  RIDE_EARNING
   REFUND
   BONUS
 }
@@ -237,6 +238,8 @@ model Trip {
   id          String     @id @default(uuid())
   rideId      String     @unique
   status      TripStatus @default(BOOKED)
+  otp         String?
+  otpVerified Boolean    @default(false)
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime   @default(now())

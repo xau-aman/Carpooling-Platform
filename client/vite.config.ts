@@ -14,11 +14,19 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        cookieDomainRewrite: 'localhost',
         configure: (proxy) => {
           proxy.on('error', (err) => { console.log('proxy error', err.message) })
         },
       },
-      '/socket.io': { target: 'http://localhost:3001', ws: true, changeOrigin: true },
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        ws: true,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', () => {}) // suppress ECONNREFUSED during server startup
+        },
+      },
     },
   },
 })

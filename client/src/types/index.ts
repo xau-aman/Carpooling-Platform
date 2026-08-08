@@ -109,6 +109,8 @@ export interface Trip {
   id: string
   rideId: string
   status: TripStatus
+  otp?: string
+  otpVerified: boolean
   startedAt?: string
   completedAt?: string
   createdAt: string
@@ -134,7 +136,7 @@ export interface Wallet {
 }
 
 export type TransactionType = 'CREDIT' | 'DEBIT'
-export type TransactionReason = 'RECHARGE' | 'RIDE_PAYMENT' | 'REFUND' | 'BONUS'
+export type TransactionReason = 'RECHARGE' | 'RIDE_PAYMENT' | 'RIDE_EARNING' | 'REFUND' | 'BONUS'
 
 export interface WalletTransaction {
   id: string

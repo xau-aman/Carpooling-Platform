@@ -6,6 +6,7 @@ const tripInclude = {
     include: {
       driver: { select: { id: true, name: true, profilePhoto: true, phone: true } },
       vehicle: true,
+      bookings: { where: { status: { not: 'CANCELLED' as const } }, select: { id: true, userId: true, seats: true, status: true } },
     },
   },
   participants: { include: { user: { select: { id: true, name: true, profilePhoto: true } } } },
@@ -25,7 +26,7 @@ export const getUserTrips = (userId: string) =>
     orderBy: { createdAt: 'desc' },
   })
 
-export const updateTripStatus = (id: string, status: TripStatus, extra?: { startedAt?: Date; completedAt?: Date }) =>
+export const updateTripStatus = (id: string, status: TripStatus, extra?: { startedAt?: Date; completedAt?: Date; otp?: string; otpVerified?: boolean }) =>
   prisma.trip.update({ where: { id }, data: { status, ...extra } })
 
 export const saveTripLocation = (tripId: string, lat: number, lng: number, heading?: number, speed?: number) =>

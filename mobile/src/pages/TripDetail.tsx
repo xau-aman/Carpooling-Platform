@@ -1,33 +1,44 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, MessageCircle, Play, CheckCircle, Navigation, Star, Send, X } from 'lucide-react'
+import { ArrowLeft, Phone, MessageCircle, Play, CheckCircle, Navigation, Send, X } from 'lucide-react'
 import api from '../lib/api'
 import { connectSocket, getSocket } from '../lib/socket'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import OtpCard from '../components/OtpCard'
+import GeofenceBar from '../components/GeofenceBar'
+import RatingCard from '../components/RatingCard'
 
-interface LocationPoint { lat: number; lng: number; heading?: number; speed?: number }
-interface ChatMsg { id: string; senderId: string; message: string; createdAt: string; sender: { name: string } }
+interface Loc { lat: number; lng: number; heading?: number; speed?: number }
+interface Msg { id: string; senderId: string; message: string; createdAt: string; sender: { name: string } }
 interface Trip {
-  id: string; rideId: string; status: string
+  id: string; rideId: string; status: string; otp?: string
   ride: {
     pickupAddress: string; destAddress: string; farePerSeat: number
     pickupLat: number; pickupLng: number; destLat: number; destLng: number
     distanceKm?: number; durationMin?: number; departureTime: string
     driver: { id: string; name: string; phone?: string }
     vehicle: { model: string; registration: string }
-    bookings?: { id: string; userId: string }[]
+    bookings?: { id: string; userId: string; seats: number }[]
   }
   participants: { id: string; userId: string; isDriver: boolean; user: { id: string; name: string } }[]
-  messages?: ChatMsg[]
+  messages?: Msg[]
 }
 
-const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
-  BOOKED:            { label: 'Upcoming',      bg: '#EFF6FF', color: '#2563EB' },
-  IN_PROGRESS:       { label: '🔴 Live',       bg: '#FFF7ED', color: '#EA580C' },
-  PAYMENT_PENDING:   { label: 'Pay Now',       bg: '#FEF9C3', color: '#CA8A04' },
-  PAYMENT_COMPLETED: { label: 'Completed',     bg: '#F0FDF4', color: '#16A34A' },
-  COMPLETED:         { label: 'Completed',     bg: '#F0FDF4', color: '#16A34A' },
+const haversineM = (a: number, b: number, c: number, d: number) => {
+  const R = 6371000, dLat = (c-a)*Math.PI/180, dLng = (d-b)*Math.PI/180
+  const x = Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x))
+}
+
+const SC: Record<string, { label: string; bg: string; color: string }> = {
+  BOOKED:            { label: 'Upcoming',       bg: '#EFF6FF', color: '#2563EB' },
+  STARTED:           { label: '🔑 OTP Pending', bg: '#FFFBEB', color: '#D97706' },
+  IN_PROGRESS:       { label: '🔴 Live',        bg: '#FFF7ED', color: '#EA580C' },
+  PAYMENT_PENDING:   { label: 'Pay Now',        bg: '#FEF9C3', color: '#CA8A04' },
+  PAYMENT_COMPLETED: { label: 'Completed',      bg: '#F0FDF4', color: '#16A34A' },
+  COMPLETED:         { label: 'Completed',      bg: '#F0FDF4', color: '#16A34A' },
+  CANCELLED:         { label: 'Cancelled',      bg: '#F5F5F5', color: '#6B7280' },
 }
 
 export default function TripDetail() {
@@ -35,81 +46,163 @@ export default function TripDetail() {
   const { user } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
+
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [messages, setMessages] = useState<ChatMsg[]>([])
-  const [showChat, setShowChat] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [msgs, setMsgs] = useState<Msg[]>([])
+  const [chat, setChat] = useState(false)
   const [chatInput, setChatInput] = useState('')
-  const [driverLoc, setDriverLoc] = useState<LocationPoint | null>(null)
-  const [rating, setRating] = useState(0)
-  const [rated, setRated] = useState(false)
-  const [passengerRating, setPassengerRating] = useState(0)
-  const [passengerRated, setPassengerRated] = useState(false)
-  const chatBottomRef = useRef<HTMLDivElement>(null)
+  const [driverLoc, setDriverLoc] = useState<Loc | null>(null)
+  const [distM, setDistM] = useState<number | null>(null)
+
+  // OTP
+  const [otp, setOtp] = useState<string | null>(null)
+  const [otpInput, setOtpInput] = useState('')
+  const [passengerOtp, setPassengerOtp] = useState<string | null>(null)
+
+  // Ratings
+  const [driverRating, setDriverRating] = useState(0)
+  const [driverRated, setDriverRated] = useState(false)
+  const [paxRating, setPaxRating] = useState(0)
+  const [paxRated, setPaxRated] = useState(false)
+
+  // Earning
+  const [earning, setEarning] = useState<number | null>(null)
+
+  const chatRef = useRef<HTMLDivElement>(null)
   const watchRef = useRef<number | null>(null)
+
+  const isDriver = trip?.participants.find(p => p.userId === user?.id)?.isDriver
+  const canCancel = ['BOOKED', 'STARTED'].includes(trip?.status ?? '')
 
   useEffect(() => {
     if (!id) return
     api.get(`/trips/${id}`)
-      .then(r => { setTrip(r.data.data); setMessages(r.data.data.messages || []) })
+      .then(r => { setTrip(r.data.data); setMsgs(r.data.data.messages || []) })
       .catch(() => toast('Trip not found', 'error'))
       .finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
     if (!trip) return
-    const socket = connectSocket()
-    socket.emit('trip:join', trip.id)
-    socket.emit('chat:join', trip.id)
-    socket.on('trip:location', (loc: LocationPoint) => setDriverLoc(loc))
-    socket.on('chat:message', (msg: ChatMsg) => setMessages(p => [...p, msg]))
-    return () => { socket.emit('trip:leave', trip.id); socket.off('trip:location'); socket.off('chat:message') }
-  }, [trip])
+    const s = connectSocket()
+    s.emit('trip:join', trip.id)
+    s.emit('chat:join', trip.id)
 
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    s.on('trip:location', (loc: Loc) => {
+      setDriverLoc(loc)
+      setDistM(Math.round(haversineM(loc.lat, loc.lng, trip.ride.destLat, trip.ride.destLng)))
+    })
+    s.on('chat:message', (m: Msg) => setMsgs(p => [...p, m]))
+    s.on('trip:otp', (d: { tripId: string; otp: string }) => {
+      if (d.tripId === trip.id) setPassengerOtp(d.otp)
+    })
+    s.on('trip:started', (d: { tripId: string }) => {
+      if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: 'IN_PROGRESS' } : t)
+    })
+    s.on('trip:completed', (d: { tripId: string; status: string }) => {
+      if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: d.status } : t)
+    })
+    s.on('trip:payment_done', (d: { tripId: string; status: string }) => {
+      if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: d.status } : t)
+    })
+    s.on('payment:received', (d: { tripId: string; amount: number }) => {
+      if (d.tripId === trip.id) setEarning(d.amount)
+    })
+    s.on('trip:cancelled', (d: { tripId: string }) => {
+      if (d.tripId === trip.id) { setTrip(t => t ? { ...t, status: 'CANCELLED' } : t); toast('Ride cancelled', 'error') }
+    })
 
-  const isDriver = trip?.participants.find(p => p.userId === user?.id)?.isDriver
+    return () => {
+      s.emit('trip:leave', trip.id)
+      ;['trip:location','chat:message','trip:otp','trip:started','trip:completed','trip:payment_done','payment:received','trip:cancelled'].forEach(e => s.off(e))
+    }
+  }, [trip?.id])
+
+  useEffect(() => { chatRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
+
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   const startTrip = async () => {
     if (!trip) return
-    setActionLoading(true)
+    setBusy(true)
     try {
-      await api.post(`/trips/${trip.id}/start`)
-      setTrip(t => t ? { ...t, status: 'IN_PROGRESS' } : t)
-      toast('Trip started!', 'success')
+      const r = await api.post(`/trips/${trip.id}/start`)
+      setOtp(r.data.data.otp)
+      setTrip(t => t ? { ...t, status: 'STARTED' } : t)
+      toast(`OTP: ${r.data.data.otp} — ask passenger`, 'success')
       if (navigator.geolocation) {
         watchRef.current = navigator.geolocation.watchPosition(pos => {
           getSocket().emit('trip:location', { tripId: trip.id, lat: pos.coords.latitude, lng: pos.coords.longitude })
+          setDistM(Math.round(haversineM(pos.coords.latitude, pos.coords.longitude, trip.ride.destLat, trip.ride.destLng)))
         }, () => {}, { enableHighAccuracy: true })
       }
     } catch { toast('Failed to start', 'error') }
-    finally { setActionLoading(false) }
+    finally { setBusy(false) }
+  }
+
+  const verifyOtp = async () => {
+    if (!trip) return
+    setBusy(true)
+    try {
+      await api.post(`/trips/${trip.id}/verify-otp`, { otp: otpInput })
+      setTrip(t => t ? { ...t, status: 'IN_PROGRESS' } : t)
+      setOtp(null)
+      toast('OTP verified! Ride is live 🚗', 'success')
+    } catch (e: unknown) {
+      toast((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Invalid OTP', 'error')
+    }
+    finally { setBusy(false) }
   }
 
   const simulate = () => {
     if (!trip) return
-    const waypoints = [
+    const wp = [
       { lat: 22.5839, lng: 88.3424 }, { lat: 22.5800, lng: 88.3600 },
       { lat: 22.5760, lng: 88.3800 }, { lat: 22.5740, lng: 88.4000 },
       { lat: 22.5726, lng: 88.4319 },
     ]
-    getSocket().emit('trip:simulate', { tripId: trip.id, waypoints })
+    getSocket().emit('trip:simulate', { tripId: trip.id, waypoints: wp })
+    setTimeout(() => setDistM(0), wp.length * 2000 + 500)
     toast('Simulation started', 'info')
   }
 
   const completeTrip = async () => {
     if (!trip) return
-    setActionLoading(true)
+    setBusy(true)
     try {
-      await api.post(`/trips/${trip.id}/complete`)
+      const simulated = distM !== null && distM <= 50
+      await api.post(`/trips/${trip.id}/complete`, { lat: driverLoc?.lat, lng: driverLoc?.lng, simulated })
       setTrip(t => t ? { ...t, status: 'PAYMENT_PENDING' } : t)
       if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current)
       toast('Trip completed!', 'success')
-    } catch { toast('Failed to complete', 'error') }
-    finally { setActionLoading(false) }
+    } catch (e: unknown) {
+      toast((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed', 'error')
+    }
+    finally { setBusy(false) }
+  }
+
+  const cancelRide = async () => {
+    if (!trip || !confirm('Cancel this ride?')) return
+    setBusy(true)
+    try {
+      await api.post(`/trips/${trip.id}/cancel-ride`)
+      setTrip(t => t ? { ...t, status: 'CANCELLED' } : t)
+      toast('Ride cancelled', 'info')
+    } catch { toast('Failed to cancel', 'error') }
+    finally { setBusy(false) }
+  }
+
+  const cancelBooking = async () => {
+    if (!trip || !confirm('Cancel your booking?')) return
+    setBusy(true)
+    try {
+      await api.post(`/trips/${trip.id}/cancel-booking`)
+      toast('Booking cancelled', 'info')
+      navigate('/trips')
+    } catch { toast('Failed to cancel', 'error') }
+    finally { setBusy(false) }
   }
 
   const sendChat = () => {
@@ -118,89 +211,88 @@ export default function TripDetail() {
     setChatInput('')
   }
 
-  const submitRating = async () => {
-    if (!trip || !rating) return
-    const driver = trip.participants.find(p => p.isDriver)
-    if (!driver) return
-    try {
-      await api.post('/ratings', { rateeId: driver.userId, rideId: trip.rideId, score: rating })
-      setRated(true); toast('Rating submitted!', 'success')
-    } catch { toast('Failed to rate', 'error') }
-  }
-
-  const submitPassengerRating = async () => {
-    if (!trip || !passengerRating) return
-    const passengers = trip.participants.filter(p => !p.isDriver)
-    try {
-      await Promise.all(passengers.map(p => api.post('/ratings', { rateeId: p.userId, rideId: trip.rideId, score: passengerRating })))
-      setPassengerRated(true); toast('Passengers rated!', 'success')
-    } catch { toast('Failed to rate', 'error') }
-  }
+  // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) return (
     <div className="h-full flex items-center justify-center">
-      <div className="w-8 h-8 border-3 border-[#714B67] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 rounded-full animate-spin" style={{ border: '3px solid #714B67', borderTopColor: 'transparent' }} />
     </div>
   )
-
   if (!trip) return (
-    <div className="h-full flex flex-col items-center justify-center px-8 text-center">
-      <p className="text-4xl mb-3">😕</p>
+    <div className="h-full flex flex-col items-center justify-center px-8 text-center gap-4">
+      <p className="text-4xl">😕</p>
       <p className="font-bold text-xl">Trip not found</p>
-      <button onClick={() => navigate('/trips')} className="m-btn m-btn-primary mt-4">Go Back</button>
+      <button onClick={() => navigate('/trips')} className="m-btn m-btn-primary">Go Back</button>
     </div>
   )
 
-  const sc = statusConfig[trip.status] ?? { label: trip.status, bg: '#f5f5f5', color: '#6b6b6b' }
+  const sc = SC[trip.status] ?? { label: trip.status, bg: '#f5f5f5', color: '#6b6b6b' }
   const driver = trip.participants.find(p => p.isDriver)
   const booking = trip.ride.bookings?.find(b => b.userId === user?.id)
-  const driverPhone = (trip.ride.driver as { phone?: string }).phone
+  const nearDest = distM !== null && distM <= 300
 
   return (
     <div className="h-full flex flex-col bg-[#f5f5f5]">
       {/* Header */}
-      <div className="bg-white px-4 py-4 flex items-center gap-3 shadow-sm shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 16px)' }}>
+      <div className="bg-white px-4 flex items-center gap-3 shadow-sm shrink-0"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 16px)', paddingBottom: 16 }}>
         <button onClick={() => navigate('/trips')} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center active:scale-95">
           <ArrowLeft size={20} />
         </button>
-        <div className="flex-1">
-          <h1 className="font-display font-bold text-lg">Trip Details</h1>
-        </div>
-        <span className="m-badge text-xs" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
+        <h1 className="font-display font-bold text-lg flex-1">Trip Details</h1>
+        <span className="m-badge" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto safe-bottom">
+      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 80px)' }}>
+
+        {/* Earning banner */}
+        {isDriver && earning && (
+          <div className="mx-4 mt-4 rounded-2xl p-4 flex items-center gap-3" style={{ background: '#f0fdf4' }}>
+            <div className="w-10 h-10 rounded-2xl bg-[#16a34a] flex items-center justify-center text-white font-bold shrink-0">₹</div>
+            <div>
+              <p className="font-bold text-[#16a34a]">₹{earning} credited!</p>
+              <p className="text-xs text-[#6b6b6b]">Passenger payment received</p>
+            </div>
+          </div>
+        )}
+
+        {/* OTP card */}
+        <div className="mt-4">
+          <OtpCard
+            otp={otp} passengerOtp={passengerOtp}
+            otpInput={otpInput} onOtpInput={setOtpInput}
+            onVerify={verifyOtp} loading={busy} isDriver={!!isDriver}
+          />
+        </div>
+
         {/* Driver card */}
-        <div className="m-4 m-card p-4">
+        <div className="mx-4 mt-4 m-card p-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0" style={{ background: '#714B67' }}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0"
+              style={{ background: 'linear-gradient(135deg,#714B67,#875A7B)' }}>
               {driver?.user.name[0]}
             </div>
             <div className="flex-1">
-              <p className="font-bold text-base">{driver?.user.name}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Star size={12} fill="#f97316" className="text-[#f97316]" />
-                <span className="text-xs text-[#6b6b6b]">4.9 · Driver</span>
-              </div>
+              <p className="font-bold">{driver?.user.name}</p>
+              <p className="text-xs text-[#6b6b6b] mt-0.5">⭐ 4.9 · Driver</p>
             </div>
             <div className="flex gap-2">
-              {driverPhone && (
-                <a href={`tel:${driverPhone}`} className="w-10 h-10 rounded-2xl bg-[#f0fdf4] flex items-center justify-center">
+              {trip.ride.driver.phone && (
+                <a href={`tel:${trip.ride.driver.phone}`} className="w-10 h-10 rounded-2xl bg-[#f0fdf4] flex items-center justify-center">
                   <Phone size={16} className="text-[#16a34a]" />
                 </a>
               )}
-              <button
-                onClick={() => setShowChat(v => !v)}
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${showChat ? 'bg-[#714B67]' : 'bg-[#f5f5f5]'}`}
-              >
-                <MessageCircle size={16} className={showChat ? 'text-white' : 'text-[#6b6b6b]'} />
+              <button onClick={() => setChat(v => !v)}
+                className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                style={{ background: chat ? '#714B67' : '#f5f5f5' }}>
+                <MessageCircle size={16} style={{ color: chat ? 'white' : '#6b6b6b' }} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Route info */}
-        <div className="mx-4 m-card p-4 mb-4">
+        {/* Route card */}
+        <div className="mx-4 mt-3 m-card p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex flex-col items-center gap-1">
               <div className="w-3 h-3 rounded-full bg-[#16a34a]" />
@@ -219,9 +311,7 @@ export default function TripDetail() {
             </div>
             <div className="text-right">
               <p className="font-display font-black text-2xl text-[#f97316]">₹{trip.ride.farePerSeat}</p>
-              {trip.ride.distanceKm && (
-                <p className="text-xs text-[#6b6b6b] mt-1">{trip.ride.distanceKm}km · {trip.ride.durationMin}min</p>
-              )}
+              {trip.ride.distanceKm && <p className="text-xs text-[#6b6b6b] mt-1">{trip.ride.distanceKm}km</p>}
             </div>
           </div>
           <div className="pt-3 border-t border-[#f5f5f5] grid grid-cols-2 gap-3 text-sm">
@@ -239,42 +329,58 @@ export default function TripDetail() {
           </div>
         </div>
 
-        {/* Live location indicator */}
+        {/* Live location */}
         {driverLoc && (
-          <div className="mx-4 mb-4 bg-[#f97316] rounded-2xl p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-              <Navigation size={16} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm">Driver is moving</p>
-              <p className="text-white/70 text-xs">Lat: {driverLoc.lat.toFixed(4)}, Lng: {driverLoc.lng.toFixed(4)}</p>
-            </div>
+          <div className="mx-4 mt-3 rounded-2xl p-3 flex items-center gap-3" style={{ background: '#f97316' }}>
+            <Navigation size={18} className="text-white shrink-0" />
+            <p className="text-white font-bold text-sm">Driver is live · {driverLoc.lat.toFixed(4)}, {driverLoc.lng.toFixed(4)}</p>
           </div>
         )}
 
-        {/* Driver actions */}
+        {/* Geofence bar */}
+        <div className="mt-3">
+          <GeofenceBar distM={distM} />
+        </div>
+
+        {/* ── DRIVER ACTIONS ── */}
         {isDriver && trip.status === 'BOOKED' && (
-          <div className="mx-4 mb-4">
-            <button onClick={startTrip} disabled={actionLoading} className="m-btn m-btn-dark m-btn-full">
-              {actionLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Play size={18} /> Start Trip</>}
+          <div className="mx-4 mt-3 flex gap-3">
+            <button onClick={cancelRide} disabled={busy} className="m-btn m-btn-outline flex-1">
+              <X size={16} /> Cancel
+            </button>
+            <button onClick={startTrip} disabled={busy} className="m-btn m-btn-dark flex-1">
+              {busy ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Play size={16} /> Start</>}
             </button>
           </div>
         )}
 
         {isDriver && trip.status === 'IN_PROGRESS' && (
-          <div className="mx-4 mb-4 flex gap-3">
-            <button onClick={simulate} className="m-btn m-btn-outline flex-1">
-              <Navigation size={16} /> Simulate
-            </button>
-            <button onClick={completeTrip} disabled={actionLoading} className="m-btn m-btn-primary flex-1">
-              {actionLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><CheckCircle size={16} /> Complete</>}
+          <div className="mx-4 mt-3 space-y-2">
+            <div className="flex gap-3">
+              <button onClick={simulate} className="m-btn m-btn-outline flex-1">
+                <Navigation size={16} /> Simulate
+              </button>
+              <button onClick={completeTrip} disabled={busy || (distM !== null && !nearDest)} className="m-btn m-btn-primary flex-1 disabled:opacity-50">
+                {busy ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><CheckCircle size={16} /> Complete</>}
+              </button>
+            </div>
+            {distM !== null && !nearDest && (
+              <p className="text-center text-xs text-[#6b6b6b]">Use Simulate to reach destination for testing</p>
+            )}
+          </div>
+        )}
+
+        {/* ── PASSENGER ACTIONS ── */}
+        {!isDriver && canCancel && (
+          <div className="mx-4 mt-3">
+            <button onClick={cancelBooking} disabled={busy} className="m-btn m-btn-outline m-btn-full">
+              <X size={16} /> Cancel Booking
             </button>
           </div>
         )}
 
-        {/* Payment */}
         {!isDriver && trip.status === 'PAYMENT_PENDING' && booking && (
-          <div className="mx-4 mb-4 m-card p-4" style={{ background: '#fffbeb', borderColor: '#f97316' }}>
+          <div className="mx-4 mt-3 m-card p-4" style={{ background: '#fffbeb' }}>
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle size={20} className="text-[#16a34a]" />
               <p className="font-bold">Trip Completed!</p>
@@ -283,88 +389,72 @@ export default function TripDetail() {
               <span className="text-sm text-[#6b6b6b]">Amount Due</span>
               <span className="font-display font-black text-3xl text-[#f97316]">₹{trip.ride.farePerSeat}</span>
             </div>
-            <button
-              onClick={() => navigate(`/payment/${booking.id}/${trip.id}/${trip.ride.farePerSeat}`)}
-              className="m-btn m-btn-orange m-btn-full"
-            >
+            <button onClick={() => navigate(`/payment/${booking.id}/${trip.id}/${trip.ride.farePerSeat}`)}
+              className="m-btn m-btn-orange m-btn-full">
               Pay Now →
             </button>
           </div>
         )}
 
-        {/* Driver rates passengers */}
-        {isDriver && ['PAYMENT_COMPLETED', 'COMPLETED', 'PAYMENT_PENDING'].includes(trip.status) && !passengerRated && (
-          <div className="mx-4 mb-4 m-card p-4">
-            <p className="font-bold text-sm mb-1">Rate your passengers</p>
-            <p className="text-xs text-[#6b6b6b] mb-3">How was the ride experience?</p>
-            <div className="flex gap-3 mb-3">
-              {[1,2,3,4,5].map(s => (
-                <button key={s} onClick={() => setPassengerRating(s)} className="text-2xl transition-transform active:scale-110">
-                  {s <= passengerRating ? '⭐' : '☆'}
-                </button>
-              ))}
-            </div>
-            {passengerRating > 0 && (
-              <button onClick={submitPassengerRating} className="m-btn m-btn-dark text-sm py-2.5 px-5">Submit</button>
-            )}
+        {/* Ratings */}
+        {isDriver && ['PAYMENT_COMPLETED','COMPLETED','PAYMENT_PENDING'].includes(trip.status) && !paxRated && (
+          <div className="mt-3">
+            <RatingCard title="Rate your passengers" rating={paxRating} onRate={setPaxRating}
+              onSubmit={async () => {
+                const pax = trip.participants.filter(p => !p.isDriver)
+                await Promise.all(pax.map(p => api.post('/ratings', { rateeId: p.userId, rideId: trip.rideId, score: paxRating })))
+                setPaxRated(true); toast('Rated!', 'success')
+              }} />
           </div>
         )}
 
-        {/* Passenger rates driver */}
-        {!isDriver && ['PAYMENT_COMPLETED', 'COMPLETED'].includes(trip.status) && !rated && (
-          <div className="mx-4 mb-4 m-card p-4">
-            <p className="font-bold text-sm mb-3">Rate your driver</p>
-            <div className="flex gap-3 mb-3">
-              {[1,2,3,4,5].map(s => (
-                <button key={s} onClick={() => setRating(s)} className="text-2xl transition-transform active:scale-110">
-                  {s <= rating ? '⭐' : '☆'}
-                </button>
-              ))}
-            </div>
-            {rating > 0 && (
-              <button onClick={submitRating} className="m-btn m-btn-dark text-sm py-2.5 px-5">Submit Rating</button>
-            )}
+        {!isDriver && ['PAYMENT_COMPLETED','COMPLETED'].includes(trip.status) && !driverRated && (
+          <div className="mt-3">
+            <RatingCard title="Rate your driver" rating={driverRating} onRate={setDriverRating}
+              onSubmit={async () => {
+                const d = trip.participants.find(p => p.isDriver)
+                if (d) await api.post('/ratings', { rateeId: d.userId, rideId: trip.rideId, score: driverRating })
+                setDriverRated(true); toast('Rated!', 'success')
+              }} />
           </div>
         )}
+
+        <div className="h-4" />
       </div>
 
       {/* Chat overlay */}
-      {showChat && (
+      {chat && (
         <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ paddingTop: 'env(safe-area-inset-top,0px)' }}>
           <div className="flex items-center gap-3 px-4 py-4 border-b border-[#f5f5f5]">
-            <button onClick={() => setShowChat(false)} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center">
+            <button onClick={() => setChat(false)} className="w-10 h-10 rounded-2xl bg-[#f5f5f5] flex items-center justify-center">
               <X size={20} />
             </button>
             <p className="font-display font-bold text-lg">Trip Chat</p>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 && (
-              <p className="text-center text-sm text-[#6b6b6b] mt-8">No messages yet. Say hi! 👋</p>
-            )}
-            {messages.map(msg => {
-              const mine = msg.senderId === user?.id
+            {msgs.length === 0 && <p className="text-center text-sm text-[#6b6b6b] mt-8">No messages yet 👋</p>}
+            {msgs.map(m => {
+              const mine = m.senderId === user?.id
               return (
-                <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${mine ? 'bg-[#714B67] text-white rounded-br-sm' : 'bg-[#f5f5f5] text-[#0f0f0f] rounded-bl-sm'}`}>
-                    {!mine && <p className="text-xs font-bold mb-1 opacity-60">{msg.sender.name}</p>}
-                    <p>{msg.message}</p>
+                <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${mine ? 'rounded-br-sm text-white' : 'rounded-bl-sm text-[#0f0f0f] bg-[#f5f5f5]'}`}
+                    style={mine ? { background: '#714B67' } : {}}>
+                    {!mine && <p className="text-xs font-bold mb-1 opacity-60">{m.sender.name}</p>}
+                    <p>{m.message}</p>
                     <p className={`text-xs mt-1 ${mine ? 'text-white/60' : 'text-[#6b6b6b]'}`}>
-                      {new Date(msg.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(m.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
               )
             })}
-            <div ref={chatBottomRef} />
+            <div ref={chatRef} />
           </div>
-          <div className="flex gap-3 px-4 py-3 border-t border-[#f5f5f5]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
-            <input
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
+          <div className="flex gap-3 px-4 py-3 border-t border-[#f5f5f5]"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendChat()}
-              placeholder="Type a message..."
-              className="flex-1 bg-[#f5f5f5] rounded-2xl px-4 py-3 text-sm outline-none"
-            />
+              placeholder="Type a message..." className="flex-1 bg-[#f5f5f5] rounded-2xl px-4 py-3 text-sm outline-none" />
             <button onClick={sendChat} className="w-12 h-12 rounded-2xl bg-[#714B67] flex items-center justify-center active:scale-95">
               <Send size={18} className="text-white" />
             </button>

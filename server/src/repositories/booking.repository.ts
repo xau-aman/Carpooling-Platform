@@ -1,17 +1,19 @@
 import { prisma } from '../config/prisma'
 import { BookingStatus } from '@prisma/client'
 
-export const createBooking = async (rideId: string, userId: string, seats: number) =>
-  prisma.$transaction(async (tx) => {
-    const ride = await tx.ride.findUnique({ where: { id: rideId } })
-    if (!ride) throw new Error('Ride not found')
-    if (ride.status !== 'PUBLISHED') throw new Error('Ride not available')
-    if (ride.availableSeats < seats) throw new Error('Not enough seats')
-    if (ride.driverId === userId) throw new Error('Driver cannot book own ride')
+export const createBooking = async (rideId: string, userId: string, seats: number) => {
+  // Run validations OUTSIDE transaction first (avoids timeout on slow Neon wake-up)
+  const ride = await prisma.ride.findUnique({ where: { id: rideId } })
+  if (!ride) throw new Error('Ride not found')
+  if (ride.status !== 'PUBLISHED') throw new Error('Ride not available')
+  if (ride.availableSeats < seats) throw new Error('Not enough seats')
+  if (ride.driverId === userId) throw new Error('Driver cannot book own ride')
 
-    const existing = await tx.rideBooking.findUnique({ where: { rideId_userId: { rideId, userId } } })
-    if (existing && existing.status !== 'CANCELLED') throw new Error('Already booked')
+  const existing = await prisma.rideBooking.findUnique({ where: { rideId_userId: { rideId, userId } } })
+  if (existing && existing.status !== 'CANCELLED') throw new Error('Already booked')
 
+  // Now run the actual writes in a short transaction (timeout 30s for Neon)
+  return prisma.$transaction(async (tx) => {
     const booking = await tx.rideBooking.create({
       data: { rideId, userId, seats, status: BookingStatus.CONFIRMED },
       include: { ride: { include: { driver: { select: { id: true, name: true } }, vehicle: true } } },
@@ -36,7 +38,8 @@ export const createBooking = async (rideId: string, userId: string, seats: numbe
     })
 
     return { booking, trip }
-  })
+  }, { timeout: 30000 })
+}
 
 export const getUserBookings = (userId: string) =>
   prisma.rideBooking.findMany({
@@ -53,13 +56,17 @@ export const getUserBookings = (userId: string) =>
     orderBy: { createdAt: 'desc' },
   })
 
-export const cancelBooking = async (bookingId: string, userId: string) =>
-  prisma.$transaction(async (tx) => {
-    const booking = await tx.rideBooking.findUnique({ where: { id: bookingId } })
-    if (!booking || booking.userId !== userId) throw new Error('Booking not found')
-    if (booking.status === 'CANCELLED') throw new Error('Already cancelled')
+export const cancelBooking = async (bookingId: string, userId: string) => {
+  const booking = await prisma.rideBooking.findUnique({ where: { id: bookingId } })
+  if (!booking || booking.userId !== userId) throw new Error('Booking not found')
+  if (booking.status === 'CANCELLED') throw new Error('Already cancelled')
 
+  return prisma.$transaction(async (tx) => {
     await tx.rideBooking.update({ where: { id: bookingId }, data: { status: 'CANCELLED' } })
-    await tx.ride.update({ where: { id: booking.rideId }, data: { availableSeats: { increment: booking.seats }, status: 'PUBLISHED' } })
+    await tx.ride.update({
+      where: { id: booking.rideId },
+      data: { availableSeats: { increment: booking.seats }, status: 'PUBLISHED' },
+    })
     return booking
-  })
+  }, { timeout: 30000 })
+}

@@ -102,16 +102,14 @@ export default function OfferRide() {
             accentColor="red"
           />
 
-          {/* Full-height map */}
+          {/* Map */}
           {showMap && (
-            <div className="rounded-2xl overflow-hidden shadow-sm" style={{ height: '380px' }}>
-              <RouteMap
-                pickup={pickup}
-                destination={destination}
-                height="h-full"
-                onRouteCalculated={(distKm, durMin, polyline) => setRouteData({ distanceKm: distKm, durationMin: durMin, polyline })}
-              />
-            </div>
+            <RouteMap
+              pickup={pickup}
+              destination={destination}
+              heightPx={380}
+              onRouteCalculated={(distKm, durMin, polyline) => setRouteData({ distanceKm: distKm, durationMin: durMin, polyline })}
+            />
           )}
 
           {routeData && (

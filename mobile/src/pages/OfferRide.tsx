@@ -10,7 +10,7 @@ interface LocationResult { display_name: string; lat: string; lon: string }
 async function searchLocation(q: string): Promise<LocationResult[]> {
   if (q.length < 3) return []
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Kolkata')}&format=json&limit=5`,
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`,
     { headers: { 'Accept-Language': 'en' } }
   )
   return res.json()
@@ -102,7 +102,7 @@ export default function OfferRide() {
         destLat: parseFloat(dest.lat),
         destLng: parseFloat(dest.lon),
         departureTime,
-        totalSeats: parseInt(seats),
+        availableSeats: parseInt(seats),
         farePerSeat: parseFloat(fare),
       })
       toast('Ride posted! 🎉', 'success')

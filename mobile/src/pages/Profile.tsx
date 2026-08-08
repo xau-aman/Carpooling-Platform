@@ -9,7 +9,7 @@ interface Vehicle { id: string; model: string; registration: string; seats: numb
 interface VehicleForm { model: string; registration: string; seats: string; fuelType: string; color: string }
 
 export default function Profile() {
-  const { user, logout, login, token } = useAuth()
+  const { user, logout, login } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -26,9 +26,8 @@ export default function Profile() {
   const saveProfile = async () => {
     setSavingP(true)
     try {
-      await api.patch('/auth/profile', pForm)
-      const me = await api.get('/auth/me')
-      login(token!, me.data.data)
+      const res = await api.patch('/auth/profile', pForm)
+      login(res.data.data.accessToken, res.data.data.user)
       toast('Profile updated!', 'success')
       setEditingProfile(false)
     } catch { toast('Failed to update', 'error') }

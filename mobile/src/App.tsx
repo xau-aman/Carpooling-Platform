@@ -2,27 +2,35 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import Home from './pages/Home'
 import FindRide from './pages/FindRide'
 import OfferRide from './pages/OfferRide'
 import MyTrips from './pages/MyTrips'
 import TripDetail from './pages/TripDetail'
+import Payment from './pages/Payment'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
-import { Home as HomeIcon, Search, Car, List, User } from 'lucide-react'
+import RideHistory from './pages/RideHistory'
+import Notifications from './pages/Notifications'
+import { Home as HomeIcon, Search, Car, List, Wallet as WalletIcon } from 'lucide-react'
 
 const NAV = [
-  { to: '/home',      icon: HomeIcon, label: 'Home' },
-  { to: '/find-ride', icon: Search,   label: 'Find' },
-  { to: '/offer-ride',icon: Car,      label: 'Offer' },
-  { to: '/trips',     icon: List,     label: 'Trips' },
-  { to: '/profile',   icon: User,     label: 'Profile' },
+  { to: '/home',       icon: HomeIcon,   label: 'Home' },
+  { to: '/find-ride',  icon: Search,     label: 'Find' },
+  { to: '/offer-ride', icon: Car,        label: 'Offer' },
+  { to: '/trips',      icon: List,       label: 'Trips' },
+  { to: '/wallet',     icon: WalletIcon, label: 'Wallet' },
 ]
+
+const HIDE_NAV = ['/', '/login', '/signup']
+const HIDE_NAV_PREFIX = ['/trip/', '/payment/']
 
 function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
-  const hide = ['/', '/login', '/signup'].includes(location.pathname) || location.pathname.startsWith('/trip/')
+  const hide = HIDE_NAV.includes(location.pathname) ||
+    HIDE_NAV_PREFIX.some(p => location.pathname.startsWith(p))
   if (hide) return null
 
   return (
@@ -51,7 +59,7 @@ function Guard({ children }: { children: React.ReactNode }) {
   if (loading) return (
     <div className="h-full flex flex-col items-center justify-center gap-4 bg-white">
       <img src="/only_logo.png" alt="GoTogether" className="w-16 h-16 rounded-2xl" />
-      <div className="w-8 h-8 border-3 border-[#714B67] border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
+      <div className="w-8 h-8 rounded-full animate-spin" style={{ border: '3px solid #714B67', borderTopColor: 'transparent' }} />
     </div>
   )
   if (!user) return <Navigate to="/login" replace />
@@ -70,16 +78,22 @@ function AppRoutes() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Navigate to={user ? '/home' : '/login'} replace />} />
-        <Route path="/login" element={user ? <Navigate to="/home" replace /> : <Login />} />
-        <Route path="/home"       element={<Guard><Home /></Guard>} />
-        <Route path="/find-ride"  element={<Guard><FindRide /></Guard>} />
-        <Route path="/offer-ride" element={<Guard><OfferRide /></Guard>} />
-        <Route path="/trips"      element={<Guard><MyTrips /></Guard>} />
-        <Route path="/trip/:id"   element={<Guard><TripDetail /></Guard>} />
-        <Route path="/wallet"     element={<Guard><Wallet /></Guard>} />
-        <Route path="/profile"    element={<Guard><Profile /></Guard>} />
-        <Route path="*"           element={<Navigate to="/" replace />} />
+        <Route path="/"        element={<Navigate to={user ? '/home' : '/login'} replace />} />
+        <Route path="/login"   element={user ? <Navigate to="/home" replace /> : <Login />} />
+        <Route path="/signup"  element={user ? <Navigate to="/home" replace /> : <Signup />} />
+
+        <Route path="/home"        element={<Guard><Home /></Guard>} />
+        <Route path="/find-ride"   element={<Guard><FindRide /></Guard>} />
+        <Route path="/offer-ride"  element={<Guard><OfferRide /></Guard>} />
+        <Route path="/trips"       element={<Guard><MyTrips /></Guard>} />
+        <Route path="/trip/:id"    element={<Guard><TripDetail /></Guard>} />
+        <Route path="/payment/:bookingId/:tripId/:amount" element={<Guard><Payment /></Guard>} />
+        <Route path="/wallet"      element={<Guard><Wallet /></Guard>} />
+        <Route path="/profile"     element={<Guard><Profile /></Guard>} />
+        <Route path="/history"     element={<Guard><RideHistory /></Guard>} />
+        <Route path="/notifications" element={<Guard><Notifications /></Guard>} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />
     </>

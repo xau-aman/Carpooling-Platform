@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import api from '../lib/api'
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
+import { authApi } from '../lib/api'
+import { tokenStore } from '../lib/tokenStore'
 
 interface User {
   id: string; email: string; name: string; phone?: string
   role: 'ADMIN' | 'EMPLOYEE'; profilePhoto?: string
+  wallet?: { balance: number }
 }
 
 interface AuthCtx {
@@ -18,25 +20,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const didInit = useRef(false)
 
   useEffect(() => {
-    const t = localStorage.getItem('wz_token')
-    if (!t) { setLoading(false); return }
-    setToken(t)
-    api.get('/auth/me')
-      .then(r => setUser(r.data.data))
-      .catch(() => { localStorage.removeItem('wz_token') })
+    if (didInit.current) return
+    didInit.current = true
+    authApi.post('/auth/refresh')
+      .then(r => {
+        const { token: t, user: u } = r.data.data
+        tokenStore.set(t); setToken(t); setUser(u)
+      })
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const login = (t: string, u: User) => {
-    localStorage.setItem('wz_token', t)
-    setToken(t); setUser(u)
+    tokenStore.set(t); setToken(t); setUser(u)
   }
 
   const logout = () => {
-    localStorage.removeItem('wz_token')
-    setToken(null); setUser(null)
+    tokenStore.set(null); setToken(null); setUser(null)
+    authApi.post('/auth/logout').catch(() => {})
   }
 
   return <Ctx.Provider value={{ user, token, loading, login, logout }}>{children}</Ctx.Provider>

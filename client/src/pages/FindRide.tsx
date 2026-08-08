@@ -170,11 +170,11 @@ export default function FindRide() {
         </div>
 
         {/* Full-height map */}
-        <div className="rounded-2xl overflow-hidden mb-5 shadow-md" style={{ height: '420px' }}>
+        <div className="mb-5">
           <RouteMap
             pickup={pickup}
             destination={destination}
-            height="h-full"
+            heightPx={440}
             onRouteCalculated={(distKm, durMin, polyline) => setRouteData({ distanceKm: distKm, durationMin: durMin, polyline })}
           />
         </div>

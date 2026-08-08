@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider } from './context/AuthProvider'
+import { useAuth } from './context/AuthContext'
 import { ToastProvider, useToast } from './context/ToastContext'
 import AppShell from './layouts/AppShell'
 import { LoadingState } from './components/ui'

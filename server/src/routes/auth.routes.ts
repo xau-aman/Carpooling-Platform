@@ -6,6 +6,8 @@ const router = Router()
 
 router.post('/login', ctrl.login)
 router.post('/register', ctrl.register)
+router.post('/refresh', ctrl.refresh)
+router.post('/logout', ctrl.logout)
 router.get('/organizations', ctrl.getOrganizations)
 router.get('/me', authenticate, ctrl.getMe)
 router.patch('/profile', authenticate, ctrl.updateProfile)

@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs'
-import { signToken } from '../utils/jwt'
+import { signToken, signRefreshToken } from '../utils/jwt'
 import * as repo from '../repositories/auth.repository'
+
+const makeTokens = (user: { id: string; organizationId: string; role: string }) => {
+  const payload = { userId: user.id, organizationId: user.organizationId, role: user.role }
+  return { accessToken: signToken(payload), refreshToken: signRefreshToken(payload) }
+}
 
 export const login = async (email: string, password: string) => {
   const user = await repo.findUserByEmail(email)
@@ -9,8 +14,7 @@ export const login = async (email: string, password: string) => {
   const valid = await bcrypt.compare(password, user.passwordHash)
   if (!valid) throw new Error('Invalid credentials')
 
-  const token = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role })
-  return { token, user: sanitizeUser(user) }
+  return { ...makeTokens(user), user: sanitizeUser(user) }
 }
 
 export const register = async (data: {
@@ -37,17 +41,10 @@ export const register = async (data: {
     profilePhoto: data.profilePhoto,
   })
 
-  const token = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role })
-  return { token, user: sanitizeUser(user) }
+  return { ...makeTokens(user), user: sanitizeUser(user) }
 }
 
 export const getOrganizations = () => repo.listOrganizations()
-
-export const getMe = async (userId: string) => {
-  const user = await repo.findUserById(userId)
-  if (!user) throw new Error('User not found')
-  return sanitizeUser(user)
-}
 
 const sanitizeUser = (user: { passwordHash: string; [key: string]: unknown }) => {
   const { passwordHash: _, ...safe } = user
