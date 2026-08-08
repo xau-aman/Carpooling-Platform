@@ -30,7 +30,7 @@ export default function WalletPage() {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
         amount: order.amount,
         currency: 'INR',
-        name: 'WorkZen Wallet',
+        name: 'GoTogether Wallet',
         description: 'Wallet Recharge',
         order_id: order.id,
         handler: async () => {
@@ -96,7 +96,7 @@ export default function WalletPage() {
         <WalletIcon size={24} className="text-[#f97316] mx-auto mb-3" />
         <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Available Balance</p>
         <p className="font-display font-black text-5xl text-[#f97316] mb-1">₹{wallet?.balance ?? 0}</p>
-        <p className="text-xs text-white/40 mb-6">WorkZen Wallet</p>
+        <p className="text-xs text-white/40 mb-6">GoTogether Wallet</p>
         <Button
           variant="primary" size="sm"
           icon={<Plus size={14} />}

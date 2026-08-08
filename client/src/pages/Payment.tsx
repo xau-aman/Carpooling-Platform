@@ -32,7 +32,7 @@ export default function Payment() {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
           amount: order.amount,
           currency: 'INR',
-          name: 'WorkZen',
+          name: 'GoTogether',
           description: 'Ride Payment',
           order_id: order.id,
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {

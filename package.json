@@ -7,7 +7,7 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "dev": "concurrently --kill-others-on-fail -n SERVER,CLIENT -c cyan,magenta \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
     "build": "npm run build --workspace=server && npm run build --workspace=client",
     "db:migrate": "node_modules/.bin/prisma migrate dev --schema=server/prisma/schema.prisma",
     "db:generate": "node_modules/.bin/prisma generate --schema=server/prisma/schema.prisma",

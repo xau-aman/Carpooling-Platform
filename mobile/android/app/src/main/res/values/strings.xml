@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GoTogether</string>
+    <string name="title_activity_main">GoTogether</string>
+    <string name="package_name">com.gotogether.carpooling</string>
+    <string name="custom_url_scheme">com.gotogether.carpooling</string>
+</resources>

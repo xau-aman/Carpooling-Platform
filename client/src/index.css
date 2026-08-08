@@ -233,6 +233,14 @@
 .leaflet-container { font-family: var(--font-sans) !important; border-radius: var(--r-lg); }
 .leaflet-control-zoom { border-radius: 14px !important; overflow: hidden; box-shadow: var(--sh-md) !important; border: none !important; }
 .leaflet-control-zoom a { border: none !important; background: var(--card) !important; color: var(--ink) !important; }
+/* Fix Leaflet tile z-index so it doesn't go under modals */
+.leaflet-pane { z-index: 1 !important; }
+.leaflet-tile-pane { z-index: 1 !important; }
+.leaflet-overlay-pane { z-index: 2 !important; }
+.leaflet-marker-pane { z-index: 3 !important; }
+.leaflet-tooltip-pane { z-index: 4 !important; }
+.leaflet-popup-pane { z-index: 5 !important; }
+.leaflet-control { z-index: 6 !important; }
 
 /* ── Mobile ───────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {

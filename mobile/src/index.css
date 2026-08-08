@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+}
+
+:root {
+  --primary: #714B67;
+  --primary-dark: #5a3a52;
+  --orange: #f97316;
+  --green: #16a34a;
+  --red: #dc2626;
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --ink: #0f0f0f;
+  --ink2: #6b6b6b;
+  --border: #e5e5e5;
+  --nav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+}
+
+/* Safe area padding for notch phones */
+.safe-top { padding-top: calc(var(--safe-top) + 12px); }
+.safe-bottom { padding-bottom: calc(var(--safe-bottom) + var(--nav-h)); }
+
+/* Scrollable content area */
+.scroll-area {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Cards */
+.m-card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* Buttons */
+.m-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 14px 24px;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+  -webkit-user-select: none;
+  user-select: none;
+  white-space: nowrap;
+}
+.m-btn:active { transform: scale(0.97); opacity: 0.9; }
+.m-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.m-btn-primary { background: var(--primary); color: white; }
+.m-btn-orange { background: var(--orange); color: white; }
+.m-btn-dark { background: var(--ink); color: white; }
+.m-btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+.m-btn-ghost { background: transparent; color: var(--ink2); }
+.m-btn-full { width: 100%; }
+
+/* Input */
+.m-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 15px;
+  outline: none;
+  color: var(--ink);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s;
+}
+.m-input:focus { border-color: var(--primary); }
+.m-input::placeholder { color: var(--ink2); }
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-h) + var(--safe-bottom));
+  background: white;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 8px;
+  z-index: 100;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+
+/* Status badge */
+.m-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Ripple tap effect */
+.tap-highlight { -webkit-tap-highlight-color: rgba(113,75,103,0.1); }
+
+/* Page transition */
+.page-enter { animation: slideUp 0.25s ease forwards; }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

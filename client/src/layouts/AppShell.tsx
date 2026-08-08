@@ -117,11 +117,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <aside className="w-64 hidden lg:flex flex-col bg-white border-r border-[#DEE2E6] h-full shrink-0 shadow-sm">
         <div className="px-5 py-5 border-b border-[#DEE2E6]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #714B67, #875A7B)' }}>
-              <Car size={18} className="text-white" />
-            </div>
+            <img src="/only_logo.png" alt="GoTogether" className="w-9 h-9 rounded-xl shrink-0 object-cover" />
             <div>
-              <span className="font-display font-black text-lg tracking-tight text-[#212529]">WorkZen</span>
+              <span className="font-display font-black text-lg tracking-tight text-[#212529]">GoTogether</span>
               <p className="text-[10px] text-[#868E96] uppercase tracking-wider leading-none mt-0.5">Carpooling</p>
             </div>
           </div>
@@ -135,10 +133,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <div className="w-72 h-full flex flex-col bg-white shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#DEE2E6]">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #714B67, #875A7B)' }}>
-                  <Car size={16} className="text-white" />
-                </div>
-                <span className="font-display font-black text-lg text-[#212529]">WorkZen</span>
+                <img src="/only_logo.png" alt="GoTogether" className="w-8 h-8 rounded-xl object-cover" />
+                <span className="font-display font-black text-lg text-[#212529]">GoTogether</span>
               </div>
               <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-[#F5F5F5] text-[#868E96]">
                 <X size={18} />
@@ -158,10 +154,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #714B67, #875A7B)' }}>
-              <Car size={14} className="text-white" />
-            </div>
-            <span className="font-display font-black text-lg text-[#212529]">WorkZen</span>
+            <img src="/only_logo.png" alt="GoTogether" className="w-7 h-7 rounded-lg object-cover" />
+            <span className="font-display font-black text-lg text-[#212529]">GoTogether</span>
           </div>
           <button
             onClick={() => { setNotifCount(0); navigate('/notifications') }}
