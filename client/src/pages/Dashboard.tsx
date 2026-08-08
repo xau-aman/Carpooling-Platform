@@ -143,45 +143,48 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Upcoming Trip */}
+      {/* Upcoming Trips — all, driver + passenger */}
       {upcoming.length > 0 && (
         <div className="anim-in mb-8">
-          <h3 className="font-display font-bold text-xs uppercase tracking-widest text-[#6b6b6b] mb-3">Upcoming Trip</h3>
-          <div className="neo-card p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="info">{upcoming[0].status}</Badge>
+          <h3 className="font-display font-bold text-xs uppercase tracking-widest text-[#6b6b6b] mb-3">Upcoming Trips ({upcoming.length})</h3>
+          <div className="space-y-3">
+            {upcoming.map(trip => {
+              const isDriver = trip.participants?.find(p => p.userId === user?.id)?.isDriver
+              const statusLabel = trip.status === 'STARTED' ? '🔑 OTP Pending' : isDriver ? 'You are driving' : 'Passenger'
+              const badgeVariant = trip.status === 'STARTED' ? 'warning' : isDriver ? 'default' : 'info'
+              return (
+                <div key={trip.id} className="neo-card p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={badgeVariant as 'warning' | 'default' | 'info'}>{statusLabel}</Badge>
+                      </div>
+                      <p className="font-bold text-lg">
+                        {trip.ride.pickupAddress.split(',')[0]} → {trip.ride.destAddress.split(',')[0]}
+                      </p>
+                      <p className="text-sm text-[#6b6b6b] mt-1">
+                        {trip.ride.driver.name} · {trip.ride.vehicle.model} · {trip.ride.vehicle.registration}
+                      </p>
+                      <p className="text-sm text-[#6b6b6b]">
+                        {new Date(trip.ride.departureTime).toLocaleString('en-IN', {
+                          weekday: 'short', day: 'numeric', month: 'short',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <p className="font-display font-bold text-2xl text-[#f97316]">₹{trip.ride.farePerSeat}</p>
+                      {trip.ride.distanceKm && (
+                        <p className="text-xs text-[#6b6b6b] mt-1">{trip.ride.distanceKm} km</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t-2 border-[#f0ede6]">
+                    <Button variant="dark" size="sm" onClick={() => navigate(`/trips/${trip.id}`)}>View Trip →</Button>
+                  </div>
                 </div>
-                <p className="font-bold text-lg">
-                  {upcoming[0].ride.pickupAddress.split(',')[0]} → {upcoming[0].ride.destAddress.split(',')[0]}
-                </p>
-                <p className="text-sm text-[#6b6b6b] mt-1">
-                  {upcoming[0].ride.driver.name} · {upcoming[0].ride.vehicle.model} · {upcoming[0].ride.vehicle.registration}
-                </p>
-                <p className="text-sm text-[#6b6b6b]">
-                  {new Date(upcoming[0].ride.departureTime).toLocaleString('en-IN', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
-                </p>
-              </div>
-              <div className="text-right shrink-0 ml-3">
-                <p className="font-display font-bold text-2xl text-[#f97316]">₹{upcoming[0].ride.farePerSeat}</p>
-                <p className="text-xs text-[#6b6b6b]">per seat</p>
-                {upcoming[0].ride.distanceKm && (
-                  <p className="text-xs text-[#6b6b6b] mt-1">{upcoming[0].ride.distanceKm} km</p>
-                )}
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t-2 border-[#f0ede6] flex gap-2">
-              <Button variant="dark" size="sm" onClick={() => navigate(`/trips/${upcoming[0].id}`)}>
-                View Trip →
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/trips')}>
-                All Trips
-              </Button>
-            </div>
+              )
+            })}
           </div>
         </div>
       )}

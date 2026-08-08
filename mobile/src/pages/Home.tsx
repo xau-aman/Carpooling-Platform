@@ -10,8 +10,9 @@ interface Trip {
   ride: {
     pickupAddress: string; destAddress: string; farePerSeat: number
     distanceKm?: number; departureTime: string
-    driver: { name: string }; vehicle: { model: string; registration: string }
+    driver: { id: string; name: string }; vehicle: { model: string; registration: string }
   }
+  participants: { userId: string; isDriver: boolean }[]
 }
 interface Wallet { balance: number }
 
@@ -142,33 +143,42 @@ export default function Home() {
           </div>
         )}
 
-        {/* Upcoming trip — shown right after booking */}
+        {/* Upcoming trips — all of them, driver + passenger */}
         {upcoming.length > 0 && (
           <div className="px-4 mt-3">
             <p className="text-xs font-bold text-[#6b6b6b] uppercase tracking-wider mb-2">
-              {upcoming[0].status === 'STARTED' ? 'OTP Pending' : 'Upcoming Trip'}
+              Upcoming ({upcoming.length})
             </p>
-            <button onClick={() => navigate(`/trip/${upcoming[0].id}`)}
-              className="w-full m-card p-4 text-left active:scale-[0.99] transition-transform">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-base text-[#0f0f0f]">{upcoming[0].ride.pickupAddress.split(',')[0]}</p>
-                  <p className="text-xs text-[#6b6b6b] mt-0.5">→ {upcoming[0].ride.destAddress.split(',')[0]}</p>
-                  <p className="text-xs text-[#6b6b6b] mt-2">{upcoming[0].ride.driver.name} · {upcoming[0].ride.vehicle.model}</p>
-                  <p className="text-xs text-[#6b6b6b]">
-                    {new Date(upcoming[0].ride.departureTime).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <div className="text-right shrink-0 ml-3">
-                  <p className="font-display font-black text-2xl text-[#f97316]">₹{upcoming[0].ride.farePerSeat}</p>
-                  <p className="text-xs text-[#6b6b6b]">per seat</p>
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-[#f0f0f0] flex items-center justify-between">
-                <span className="text-xs font-bold text-[#714B67]">View Trip Details</span>
-                <ChevronRight size={16} className="text-[#714B67]" />
-              </div>
-            </button>
+            <div className="space-y-2">
+              {upcoming.map(trip => {
+                const isDriver = trip.participants.find(p => p.userId === user?.id)?.isDriver
+                const statusLabel = trip.status === 'STARTED' ? '🔑 OTP Pending' : isDriver ? 'You are driving' : 'Passenger'
+                const statusColor = trip.status === 'STARTED' ? '#D97706' : isDriver ? '#714B67' : '#2563EB'
+                return (
+                  <button key={trip.id} onClick={() => navigate(`/trip/${trip.id}`)}
+                    className="w-full m-card p-4 text-left active:scale-[0.99] transition-transform">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${statusColor}18`, color: statusColor }}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="font-bold text-sm text-[#0f0f0f]">{trip.ride.pickupAddress.split(',')[0]}</p>
+                        <p className="text-xs text-[#6b6b6b] mt-0.5">→ {trip.ride.destAddress.split(',')[0]}</p>
+                        <p className="text-xs text-[#6b6b6b] mt-1">
+                          {new Date(trip.ride.departureTime).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0 ml-3">
+                        <p className="font-display font-black text-xl text-[#f97316]">₹{trip.ride.farePerSeat}</p>
+                        <p className="text-xs text-[#6b6b6b]">{trip.ride.vehicle.model}</p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
