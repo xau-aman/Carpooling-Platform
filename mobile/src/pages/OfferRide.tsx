@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Car, ChevronDown, Map } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../context/ToastContext'
 import MapPicker from '../components/MapPicker'
+import { istDateString, istTimeString } from '../lib/ist'
 
 interface Vehicle { id: string; model: string; registration: string; seats: number; isActive: boolean }
 interface LocationResult { display_name: string; lat: string; lon: string }
@@ -74,14 +75,8 @@ export default function OfferRide() {
   const [pickup, setPickup] = useState<LocationResult | null>(null)
   const [dest, setDest] = useState<LocationResult | null>(null)
   const [vehicleId, setVehicleId] = useState('')
-  const [date, setDate] = useState(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    return now.toISOString().split('T')[0]
-  })
-  const [time, setTime] = useState(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-  })
+  const [date, setDate] = useState(istDateString)
+  const [time, setTime] = useState(istTimeString)
   const [seats, setSeats] = useState('3')
   const [fare, setFare] = useState('120')
   const [loading, setLoading] = useState(false)

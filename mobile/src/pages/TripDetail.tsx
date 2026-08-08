@@ -74,18 +74,6 @@ export default function TripDetail() {
   const isDriver = trip?.participants.find(p => p.userId === user?.id)?.isDriver
   const canCancel = ['BOOKED', 'STARTED'].includes(trip?.status ?? '')
 
-  // Join personal socket room IMMEDIATELY on mount — before trip loads
-  // This ensures OTP socket event is not missed due to race condition
-  useEffect(() => {
-    if (!user) return
-    const s = connectSocket()
-    s.emit('user:join', user.id)
-    // Re-join on reconnect so notifications/OTP always arrive
-    const rejoin = () => s.emit('user:join', user.id)
-    s.on('connect', rejoin)
-    return () => { s.off('connect', rejoin) }
-  }, [user?.id])
-
   const loadTrip = useCallback(() => {
     if (!id) return
     api.get(`/trips/${id}`)
@@ -93,7 +81,7 @@ export default function TripDetail() {
         const t = r.data.data
         setTrip(t)
         setMsgs(t.messages || [])
-        // Always restore OTP from trip data if status is STARTED
+        // Restore OTP from DB if trip already STARTED
         if (t.status === 'STARTED' && t.otp) setPassengerOtp(t.otp)
       })
       .catch(() => toast('Trip not found', 'error'))
@@ -102,50 +90,84 @@ export default function TripDetail() {
 
   useEffect(() => { loadTrip() }, [loadTrip])
 
-  // Re-fetch when app comes back to foreground (fixes stale status after back navigation)
+  // Refresh on foreground
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') loadTrip() }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadTrip])
 
+  // OTP listener — must be on user room, set up BEFORE trip loads, independent of trip state
+  useEffect(() => {
+    if (!user || !id) return
+    const s = connectSocket()
+    s.emit('user:join', user.id)
+    const rejoin = () => { s.emit('user:join', user.id) }
+    s.on('connect', rejoin)
+    const onOtp = (d: { tripId: string; otp: string }) => {
+      // tripId may not match trip state yet — compare with route param id
+      if (d.tripId === id) {
+        setPassengerOtp(d.otp)
+        setTrip(t => t ? { ...t, status: 'STARTED', otp: d.otp } : t)
+      }
+    }
+    s.on('trip:otp', onOtp)
+    return () => {
+      s.off('connect', rejoin)
+      s.off('trip:otp', onOtp)
+    }
+  }, [user?.id, id])
+
+  // All other trip socket events — set up after trip loads
   useEffect(() => {
     if (!trip || !user) return
     const s = connectSocket()
     s.emit('trip:join', trip.id)
     s.emit('chat:join', trip.id)
 
-    s.on('trip:location', (loc: Loc) => {
+    const onLoc = (loc: Loc) => {
       setDriverLoc(loc)
       setDistM(Math.round(haversineM(loc.lat, loc.lng, trip.ride.destLat, trip.ride.destLng)))
-    })
-    s.on('chat:message', (m: Msg) => setMsgs(p => [...p, m]))
-    s.on('trip:otp', (d: { tripId: string; otp: string }) => {
-      if (d.tripId === trip.id) setPassengerOtp(d.otp)
-    })
-    s.on('trip:started', (d: { tripId: string }) => {
+    }
+    const onMsg = (m: Msg) => setMsgs(p => [...p, m])
+    const onStarted = (d: { tripId: string }) => {
       if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: 'IN_PROGRESS' } : t)
-    })
-    s.on('trip:completed', (d: { tripId: string; status: string }) => {
+    }
+    const onCompleted = (d: { tripId: string; status: string }) => {
       if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: d.status } : t)
-    })
-    s.on('trip:payment_done', (d: { tripId: string; status: string }) => {
+    }
+    const onPayDone = (d: { tripId: string; status: string }) => {
       if (d.tripId === trip.id) setTrip(t => t ? { ...t, status: d.status } : t)
-    })
-    s.on('payment:received', (d: { tripId: string; amount: number }) => {
+    }
+    const onEarning = (d: { tripId: string; amount: number }) => {
       if (d.tripId === trip.id) setEarning(d.amount)
-    })
-    s.on('trip:cancelled', (d: { tripId: string }) => {
+    }
+    const onCancelled = (d: { tripId: string }) => {
       if (d.tripId === trip.id) { setTrip(t => t ? { ...t, status: 'CANCELLED' } : t); toast('Ride cancelled', 'error') }
-    })
-    s.on('booking:cancelled', () => {
-      // Driver sees passenger cancelled — reload trip
+    }
+    const onBookingCancelled = () => {
       api.get(`/trips/${trip.id}`).then(r => setTrip(r.data.data))
-    })
+    }
+
+    s.on('trip:location', onLoc)
+    s.on('chat:message', onMsg)
+    s.on('trip:started', onStarted)
+    s.on('trip:completed', onCompleted)
+    s.on('trip:payment_done', onPayDone)
+    s.on('payment:received', onEarning)
+    s.on('trip:cancelled', onCancelled)
+    s.on('booking:cancelled', onBookingCancelled)
 
     return () => {
       s.emit('trip:leave', trip.id)
-      ;['trip:location','chat:message','trip:otp','trip:started','trip:completed','trip:payment_done','payment:received','trip:cancelled','booking:cancelled'].forEach(e => s.off(e))
+      s.off('trip:location', onLoc)
+      s.off('chat:message', onMsg)
+      s.off('trip:started', onStarted)
+      s.off('trip:completed', onCompleted)
+      s.off('trip:payment_done', onPayDone)
+      s.off('payment:received', onEarning)
+      s.off('trip:cancelled', onCancelled)
+      s.off('booking:cancelled', onBookingCancelled)
     }
   }, [trip?.id])
 

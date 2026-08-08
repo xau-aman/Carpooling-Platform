@@ -9,6 +9,7 @@ import { Select, Badge, LoadingState, EmptyState } from '../components/ui'
 import LocationSearch, { LocationResult } from '../components/LocationSearch'
 import RouteMap from '../components/RouteMap'
 import { Ride, SavedPlace } from '../types'
+import { istDateString, istTimeString } from '../lib/ist'
 
 type Step = 'form' | 'confirm' | 'rides'
 interface RouteData { distanceKm: number; durationMin: number; polyline: string }
@@ -20,14 +21,8 @@ export default function FindRide() {
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([])
   const [pickup, setPickup] = useState<LocationResult | null>(null)
   const [destination, setDestination] = useState<LocationResult | null>(null)
-  const [date, setDate] = useState(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    return now.toISOString().split('T')[0]
-  })
-  const [time, setTime] = useState(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-  })
+  const [date, setDate] = useState(istDateString)
+  const [time, setTime] = useState(istTimeString)
   const [seats, setSeats] = useState('1')
   const [routeData, setRouteData] = useState<RouteData | null>(null)
   const [rides, setRides] = useState<Ride[]>([])

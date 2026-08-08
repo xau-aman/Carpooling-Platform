@@ -37,6 +37,12 @@ export async function showLocalNotification(title: string, body: string) {
   if (!Capacitor.isNativePlatform()) return
   try {
     await ensureChannel()
+    // Ensure permission granted before scheduling
+    const { display } = await LocalNotifications.checkPermissions()
+    if (display !== 'granted') {
+      const res = await LocalNotifications.requestPermissions()
+      if (res.display !== 'granted') return
+    }
     await LocalNotifications.schedule({
       notifications: [{
         id: notifId++,

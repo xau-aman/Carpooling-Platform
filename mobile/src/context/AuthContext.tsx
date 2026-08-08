@@ -3,6 +3,8 @@ import { authApi } from '../lib/api'
 import { tokenStore } from '../lib/tokenStore'
 import { requestNotificationPermission } from '../lib/notifications'
 import { connectSocket, setSocketUserId } from '../lib/socket'
+import { Geolocation } from '@capacitor/geolocation'
+import { Capacitor } from '@capacitor/core'
 
 interface User {
   id: string; email: string; name: string; phone?: string
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tokenStore.set(saved); setToken(saved); setUser(u)
         setLoading(false)
         requestNotificationPermission()
+        if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
         connectSocket(); setSocketUserId(u.id)
         return
       } catch {}
@@ -57,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.set(t); setToken(t); setUser(u)
     localStorage.setItem('gt_user', JSON.stringify(u))
     requestNotificationPermission()
+    if (Capacitor.isNativePlatform()) Geolocation.requestPermissions().catch(() => {})
     connectSocket(); setSocketUserId(u.id)
   }
 

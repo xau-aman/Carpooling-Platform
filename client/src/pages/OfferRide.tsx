@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, Car, IndianRupee, ChevronRight, AlertTriangle } from 'lucide-react'
 import api from '../lib/api'
 import { useToast } from '../context/ToastContext'
+import { istDateString, istTimeString } from '../lib/ist'
 import Button from '../components/Button'
 import { Select } from '../components/ui'
 import LocationSearch, { LocationResult } from '../components/LocationSearch'
@@ -18,13 +19,10 @@ export default function OfferRide() {
   const [pickup, setPickup] = useState<LocationResult | null>(null)
   const [destination, setDestination] = useState<LocationResult | null>(null)
   const [routeData, setRouteData] = useState<RouteData | null>(null)
-  const [form, setForm] = useState(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
-    return {
-      date: now.toISOString().split('T')[0],
-      time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-      vehicleId: '', availableSeats: '3', farePerSeat: '120',
-    }
+  const [form, setForm] = useState({
+    date: istDateString(),
+    time: istTimeString(),
+    vehicleId: '', availableSeats: '3', farePerSeat: '120',
   })
   const [loading, setLoading] = useState(false)
 
