@@ -25,10 +25,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
+
+    // Try localStorage first (works on Android without cookies)
+    const saved = tokenStore.load()
+    const savedUser = localStorage.getItem('gt_user')
+    if (saved && savedUser) {
+      try {
+        const u = JSON.parse(savedUser)
+        tokenStore.set(saved); setToken(saved); setUser(u)
+        setLoading(false)
+        return
+      } catch {}
+    }
+
+    // Fallback: try cookie-based refresh (works on web)
     authApi.post('/auth/refresh')
       .then(r => {
         const { token: t, user: u } = r.data.data
         tokenStore.set(t); setToken(t); setUser(u)
+        localStorage.setItem('gt_user', JSON.stringify(u))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -36,10 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (t: string, u: User) => {
     tokenStore.set(t); setToken(t); setUser(u)
+    localStorage.setItem('gt_user', JSON.stringify(u))
   }
 
   const logout = () => {
     tokenStore.set(null); setToken(null); setUser(null)
+    localStorage.removeItem('gt_user')
     authApi.post('/auth/logout').catch(() => {})
   }
 

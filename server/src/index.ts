@@ -21,34 +21,11 @@ const app = express()
 const httpServer = createServer(app)
 
 const io = new Server(httpServer, {
-  cors: { origin: (origin, cb) => {
-    if (!origin) return cb(null, true)
-    const ok = [
-      config.clientUrl, 'http://localhost:5173', 'http://localhost:5174',
-      /^http:\/\/10\./, /^http:\/\/192\.168\./, /\.vercel\.app$/, /\.onrender\.com$/,
-    ].some(o => typeof o === 'string' ? o === origin : o.test(origin))
-    cb(null, ok)
-  }, credentials: true },
+  cors: { origin: '*', credentials: false },
 })
 
-// Allow from any origin in dev (mobile + web)
-const allowedOrigins = [
-  config.clientUrl,
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  /^http:\/\/10\./,
-  /^http:\/\/192\.168\./,
-  /\.vercel\.app$/,
-  /\.onrender\.com$/,
-]
-
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true)
-    const ok = allowedOrigins.some(o => typeof o === 'string' ? o === origin : o.test(origin))
-    cb(null, ok)
-  },
+  origin: (origin, cb) => cb(null, true),
   credentials: true,
 }))
 app.use(cookieParser() as unknown as express.RequestHandler)
