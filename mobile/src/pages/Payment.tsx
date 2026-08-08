@@ -4,7 +4,6 @@ import { ArrowLeft, Wallet, CreditCard, Smartphone, Banknote, CheckCircle, Shiel
 import api from '../lib/api'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
-import RazorpayCheckout from '../components/RazorpayCheckout'
 
 type PayMethod = 'WALLET' | 'CASH' | 'UPI' | 'CARD'
 
@@ -12,69 +11,26 @@ export default function Payment() {
   const { bookingId, tripId, amount } = useParams<{ bookingId: string; tripId: string; amount: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { user } = useAuth()
+  const { user: _user } = useAuth()
   const [method, setMethod] = useState<PayMethod>('WALLET')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
-  const [rzpOrder, setRzpOrder] = useState<{ id: string } | null>(null)
 
   const amt = parseFloat(amount || '0')
 
-  // WALLET / CASH — direct
-  const payDirect = async () => {
+  const handlePay = async () => {
     setError(''); setLoading(true)
     try {
-      await api.post('/payments/pay', { bookingId, tripId, amount: amt, method })
+      // All methods go direct — no Razorpay iframe (unreliable in WebView)
+      // UPI/CARD treated as demo payment for hackathon
+      const payMethod = (method === 'UPI' || method === 'CARD') ? 'CASH' : method
+      await api.post('/payments/pay', { bookingId, tripId, amount: amt, method: payMethod })
       setDone(true)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(msg || 'Payment failed')
       toast(msg || 'Payment failed', 'error')
-    } finally { setLoading(false) }
-  }
-
-  // UPI / CARD — create Razorpay order first
-  const payRazorpay = async () => {
-    setError(''); setLoading(true)
-    try {
-      const r = await api.post('/payments/order', { amount: amt })
-      setRzpOrder(r.data.data)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      // If Razorpay not configured on server, fall back to direct payment (demo mode)
-      if (msg?.includes('not configured') || msg?.includes('Razorpay')) {
-        try {
-          await api.post('/payments/pay', { bookingId, tripId, amount: amt, method: 'CASH' })
-          setDone(true)
-          return
-        } catch (e2: unknown) {
-          const m2 = (e2 as { response?: { data?: { message?: string } } })?.response?.data?.message
-          setError(m2 || 'Payment failed')
-          toast(m2 || 'Payment failed', 'error')
-          return
-        }
-      }
-      setError(msg || 'Could not initiate payment')
-      toast(msg || 'Failed', 'error')
-    } finally { setLoading(false) }
-  }
-
-  const handlePay = () => {
-    if (method === 'WALLET' || method === 'CASH') payDirect()
-    else payRazorpay()
-  }
-
-  // Called after Razorpay success — verify + finalize
-  const handleRzpSuccess = async (data: { razorpayOrderId: string; razorpayPayId: string; razorpaySignature: string }) => {
-    setRzpOrder(null); setLoading(true)
-    try {
-      await api.post('/payments/pay', { bookingId, tripId, amount: amt, method, ...data })
-      setDone(true)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || 'Payment verification failed')
-      toast(msg || 'Verification failed', 'error')
     } finally { setLoading(false) }
   }
 
@@ -100,14 +56,6 @@ export default function Payment() {
 
   return (
     <div className="h-full flex flex-col bg-[#f5f5f5]">
-      {/* Razorpay overlay */}
-      {rzpOrder && (
-        <RazorpayCheckout
-          options={{ orderId: rzpOrder.id, amount: amt, name: 'GoTogether', description: 'Ride Payment', prefillName: user?.name, prefillEmail: user?.email, prefillPhone: user?.phone }}
-          onSuccess={handleRzpSuccess}
-          onDismiss={() => setRzpOrder(null)}
-        />
-      )}
 
       <div className="bg-white px-4 py-4 shadow-sm shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top,0px) + 16px)' }}>
         <div className="flex items-center gap-3">
