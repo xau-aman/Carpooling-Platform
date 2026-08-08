@@ -74,26 +74,19 @@ export const registerSockets = (io: Server) => {
       })
     })
 
-    // Demo simulation — same pipeline as real location
+    // Demo simulation — instantly jump to last waypoint
     socket.on('trip:simulate', async (data: { tripId: string; waypoints: Array<{ lat: number; lng: number }> }) => {
       if (!socket.userId) return
       const ok = await isParticipant(data.tripId, socket.userId)
       if (!ok) return
-
-      let i = 0
-      const interval = setInterval(async () => {
-        if (i >= data.waypoints.length) { clearInterval(interval); return }
-        const point = data.waypoints[i++]
+      // Emit all waypoints instantly, last one is destination
+      for (const point of data.waypoints) {
         await saveTripLocation(data.tripId, point.lat, point.lng)
         io.to(`trip:${data.tripId}`).emit('trip:location', {
-          tripId: data.tripId,
-          lat: point.lat,
-          lng: point.lng,
+          tripId: data.tripId, lat: point.lat, lng: point.lng,
           timestamp: new Date().toISOString(),
         })
-      }, 2000)
-
-      socket.on('disconnect', () => clearInterval(interval))
+      }
     })
 
     // ── Chat ───────────────────────────────────────────────────────────────

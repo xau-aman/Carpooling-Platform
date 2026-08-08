@@ -13,7 +13,7 @@ export const bookRide = async (req: AuthRequest, res: Response) => {
     await pushNotification(
       result.booking.ride.driver.id,
       'New Booking!',
-      `${req.user!.userId} booked a seat on your ride`
+      `${result.booking.ride.driver.name ? 'A passenger' : 'Someone'} booked a seat on your ride`
     ).catch(() => {})
     return created(res, result)
   } catch (e: unknown) {
