@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum RideStatus {
+  PUBLISHED
+  FULL
+  CANCELLED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum TripStatus {
+  BOOKED
+  STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAYMENT_PENDING
+  PAYMENT_COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  WALLET
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  ELECTRIC
+  HYBRID
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionReason {
+  RECHARGE
+  RIDE_PAYMENT
+  REFUND
+  BONUS
+}
+
+// ─── Organization ────────────────────────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  address     String?
+  industry    String?
+  adminEmail  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  settings    OrganizationSettings?
+  users       User[]
+  vehicles    Vehicle[]
+  rides       Ride[]
+
+  @@index([adminEmail])
+}
+
+model OrganizationSettings {
+  id                   String   @id @default(uuid())
+  organizationId       String   @unique
+  fuelCostPerLiter     Float    @default(100)
+  costPerKm            Float    @default(5)
+  travelCostPolicy     String?
+  defaultCarpoolPolicy String?
+  updatedAt            DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String   @unique
+  phone          String?
+  passwordHash   String
+  name           String
+  role           Role     @default(EMPLOYEE)
+  profilePhoto   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  profile          EmployeeProfile?
+  vehicles         Vehicle[]
+  offeredRides     Ride[]            @relation("DriverRides")
+  bookings         RideBooking[]
+  tripParticipants TripParticipant[]
+  wallet           Wallet?
+  payments         Payment[]
+  sentMessages     ChatMessage[]
+  notifications    Notification[]
+  ratingsGiven     Rating[]          @relation("RaterRatings")
+  ratingsReceived  Rating[]          @relation("RateeRatings")
+  savedPlaces      SavedPlace[]
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model EmployeeProfile {
+  id         String  @id @default(uuid())
+  userId     String  @unique
+  department String?
+  manager    String?
+  location   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Vehicle ──────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  model          String
+  registration   String
+  seats          Int
+  fuelType       FuelType @default(PETROL)
+  color          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+  rides        Ride[]
+
+  @@unique([organizationId, registration])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// ─── Ride ─────────────────────────────────────────────────────────────────────
+
+model Ride {
+  id              String     @id @default(uuid())
+  organizationId  String
+  driverId        String
+  vehicleId       String
+  pickupAddress   String
+  pickupLat       Float
+  pickupLng       Float
+  destAddress     String
+  destLat         Float
+  destLng         Float
+  departureTime   DateTime
+  availableSeats  Int
+  totalSeats      Int
+  farePerSeat     Float
+  status          RideStatus @default(PUBLISHED)
+  isRecurring     Boolean    @default(false)
+  distanceKm      Float?
+  durationMin     Int?
+  routePolyline   String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  driver       User          @relation("DriverRides", fields: [driverId], references: [id])
+  vehicle      Vehicle       @relation(fields: [vehicleId], references: [id])
+  bookings     RideBooking[]
+  trip         Trip?
+
+  @@index([organizationId])
+  @@index([driverId])
+  @@index([status])
+  @@index([departureTime])
+}
+
+// ─── Booking ──────────────────────────────────────────────────────────────────
+
+model RideBooking {
+  id        String        @id @default(uuid())
+  rideId    String
+  userId    String
+  seats     Int           @default(1)
+  status    BookingStatus @default(CONFIRMED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  ride    Ride    @relation(fields: [rideId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  payment Payment?
+
+  @@unique([rideId, userId])
+  @@index([rideId])
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Trip ─────────────────────────────────────────────────────────────────────
+
+model Trip {
+  id          String     @id @default(uuid())
+  rideId      String     @unique
+  status      TripStatus @default(BOOKED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  ride         Ride             @relation(fields: [rideId], references: [id])
+  participants TripParticipant[]
+  locations    TripLocation[]
+  messages     ChatMessage[]
+  payments     Payment[]
+
+  @@index([status])
+}
+
+model TripParticipant {
+  id     String @id @default(uuid())
+  tripId String
+  userId String
+  isDriver Boolean @default(false)
+
+  trip Trip @relation(fields: [tripId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId])
+  @@index([tripId])
+  @@index([userId])
+}
+
+model TripLocation {
+  id        String   @id @default(uuid())
+  tripId    String
+  lat       Float
+  lng       Float
+  heading   Float?
+  speed     Float?
+  timestamp DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
+  @@index([timestamp])
+}
+
+// ─── Wallet ───────────────────────────────────────────────────────────────────
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Float    @default(0)
+  updatedAt DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        String            @id @default(uuid())
+  walletId  String
+  type      TransactionType
+  reason    TransactionReason
+  amount    Float
+  note      String?
+  createdAt DateTime          @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+}
+
+// ─── Payment ──────────────────────────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  bookingId       String?       @unique
+  tripId          String?
+  amount          Float
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  razorpayOrderId String?
+  razorpayPayId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id])
+  booking RideBooking? @relation(fields: [bookingId], references: [id])
+  trip    Trip?       @relation(fields: [tripId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  tripId    String
+  senderId  String
+  message   String
+  createdAt DateTime @default(now())
+
+  trip   Trip @relation(fields: [tripId], references: [id])
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@index([tripId])
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ─── Rating ───────────────────────────────────────────────────────────────────
+
+model Rating {
+  id        String   @id @default(uuid())
+  raterId   String
+  rateeId   String
+  rideId    String?
+  score     Float
+  comment   String?
+  createdAt DateTime @default(now())
+
+  rater User @relation("RaterRatings", fields: [raterId], references: [id])
+  ratee User @relation("RateeRatings", fields: [rateeId], references: [id])
+
+  @@unique([raterId, rideId])
+  @@index([rateeId])
+}
+
+// ─── Saved Places ─────────────────────────────────────────────────────────────
+
+model SavedPlace {
+  id      String @id @default(uuid())
+  userId  String
+  label   String
+  address String
+  lat     Float
+  lng     Float
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}

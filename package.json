@@ -1,0 +1,22 @@
+{
+  "name": "workzen",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "db:migrate": "node_modules/.bin/prisma migrate dev --schema=server/prisma/schema.prisma",
+    "db:generate": "node_modules/.bin/prisma generate --schema=server/prisma/schema.prisma",
+    "db:seed": "cd server && npm run db:seed",
+    "db:studio": "node_modules/.bin/prisma studio --schema=server/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.22.0",
+    "concurrently": "^8.2.2",
+    "prisma": "^5.22.0"
+  }
+}
