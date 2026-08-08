@@ -6,7 +6,7 @@
 
 **A full-stack enterprise carpooling platform built for the Odoo Hackathon 2025**
 
-[![Live Demo](https://img.shields.io/badge/🌐_Web_App-Live_on_Vercel-black?style=for-the-badge)](https://gotogether-carpool.vercel.app)
+[![Live Demo](https://img.shields.io/badge/🌐_Web_App-Live_on_Vercel-black?style=for-the-badge)](https://carpooling-platform-client.vercel.app)
 [![API Server](https://img.shields.io/badge/⚡_API-Live_on_Render-orange?style=for-the-badge)](https://carpooling-platform.onrender.com/api/v1/health)
 [![Mobile APK](https://img.shields.io/badge/📱_Android_APK-Download-green?style=for-the-badge)](#mobile-apk)
 
@@ -18,7 +18,7 @@
 
 | Service | URL |
 |---------|-----|
-| **Web App (Vercel)** | https://gotogether-carpool.vercel.app |
+| **Web App (Vercel)** | https://carpooling-platform-client.vercel.app |
 | **API Server (Render)** | https://carpooling-platform.onrender.com |
 | **API Health Check** | https://carpooling-platform.onrender.com/api/v1/health |
 
@@ -81,7 +81,7 @@ All accounts use password: **`Demo@1234`**
 
 ### Flow 1: Book a Ride (as Employee)
 
-1. Open https://gotogether-carpool.vercel.app
+1. Open https://carpooling-platform-client.vercel.app
 2. Click **"Employee"** quick login → auto-fills `user@gotogether.com` / `Demo@1234`
 3. Click **Sign In** → lands on Dashboard
 4. See **100 past trips** in Ride History, wallet balance, stats
@@ -140,7 +140,7 @@ All accounts use password: **`Demo@1234`**
 ┌─────────────────────────────────────────────────────────────┐
 │                        CLIENT LAYER                          │
 │  Vercel (React + Vite)          Mobile (Capacitor Android)  │
-│  gotogether-carpool.vercel.app  GoTogether-v6.0-debug.apk   │
+│  carpooling-platform-client.vercel.app  GoTogether-v6.0-debug.apk   │
 └──────────────────────┬──────────────────────────────────────┘
                        │ HTTPS + WSS
 ┌──────────────────────▼──────────────────────────────────────┐
@@ -501,13 +501,13 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 ## 👥 Team
 
-Built for **Odoo Hackathon 2025** 🏆
+Built for **Odoo Hackathon** 🏆
 
 ---
 
 <div align="center">
   <strong>GoTogether — Smarter commutes, together.</strong><br/>
-  <a href="https://gotogether-carpool.vercel.app">Live Demo</a> ·
+  <a href="https://carpooling-platform-client.vercel.app">Live Demo</a> ·
   <a href="https://carpooling-platform.onrender.com/api/v1/health">API Health</a> ·
   <a href="https://github.com/xau-aman/Carpooling-Platform">GitHub</a>
 </div>
