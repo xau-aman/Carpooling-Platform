@@ -106,7 +106,7 @@ export default function Signup() {
         </div>
 
         <p className="relative z-10 text-white/20 text-xs font-bold tracking-[0.2em] uppercase">
-          © 2025 GoTogether · Odoo Hackathon
+          © GoTogether · Odoo Hackathon
         </p>
       </div>
 
