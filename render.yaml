@@ -3,7 +3,7 @@ services:
     name: gotogether-server
     runtime: node
     rootDir: server
-    buildCommand: npm install && npm run build && npx prisma generate --schema=prisma/schema.prisma
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV

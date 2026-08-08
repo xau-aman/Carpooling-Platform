@@ -51,7 +51,7 @@ app.use(cors({
   },
   credentials: true,
 }))
-app.use(cookieParser())
+app.use(cookieParser() as unknown as express.RequestHandler)
 app.use(express.json())
 
 // Routes
