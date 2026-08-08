@@ -30,9 +30,9 @@ export default function Login() {
   }
 
   const demos = [
-    { label: 'Admin', email: 'admin@odoo.com' },
-    { label: 'Driver', email: 'raj@odoo.com' },
-    { label: 'Employee', email: 'aman@odoo.com' },
+    { label: 'Admin', email: 'admin@gotogether.com' },
+    { label: 'Driver', email: 'driver@gotogether.com' },
+    { label: 'User', email: 'user@gotogether.com' },
   ]
 
   return (

@@ -85,10 +85,12 @@ export default function TripDetail() {
   }, [id])
 
   useEffect(() => {
-    if (!trip) return
+    if (!trip || !user) return
     const s = connectSocket()
     s.emit('trip:join', trip.id)
     s.emit('chat:join', trip.id)
+    // Join personal room so OTP reaches this device
+    s.emit('user:join', user.id)
 
     s.on('trip:location', (loc: Loc) => {
       setDriverLoc(loc)

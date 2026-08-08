@@ -37,6 +37,11 @@ export const registerSockets = (io: Server) => {
     if (socket.userId) socket.join(`user:${socket.userId}`)
     // Join org room for broadcast notifications
     if (socket.organizationId) socket.join(`org:${socket.organizationId}`)
+
+    // Allow client to explicitly re-join personal room (for OTP delivery)
+    socket.on('user:join', (userId: string) => {
+      if (socket.userId === userId) socket.join(`user:${userId}`)
+    })
     // ── Trip room ──────────────────────────────────────────────────────────
     socket.on('trip:join', async (tripId: string) => {
       if (!socket.userId) return

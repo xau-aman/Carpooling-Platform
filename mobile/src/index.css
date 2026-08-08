@@ -107,14 +107,18 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(var(--nav-h) + var(--safe-bottom));
   background: white;
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding-top: 8px;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
   z-index: 100;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 -2px 16px rgba(0,0,0,0.06);
+}
+
+.safe-bottom {
+  padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 8px) + 64px);
 }
 
 /* Status badge */
