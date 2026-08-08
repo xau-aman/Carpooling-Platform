@@ -33,12 +33,11 @@ export const registerSockets = (io: Server) => {
   })
 
   io.on('connection', (socket: AuthSocket) => {
-    // Join personal room for notifications
+    // Auto-join personal room from token — no client emit needed
     if (socket.userId) socket.join(`user:${socket.userId}`)
-    // Join org room for broadcast notifications
     if (socket.organizationId) socket.join(`org:${socket.organizationId}`)
 
-    // Allow client to explicitly re-join personal room (for OTP delivery)
+    // Also allow explicit re-join (belt + suspenders)
     socket.on('user:join', (userId: string) => {
       if (socket.userId === userId) socket.join(`user:${userId}`)
     })

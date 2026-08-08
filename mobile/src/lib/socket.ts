@@ -24,9 +24,15 @@ export function connectSocket(): Socket {
   })
 
   socket.on('connect', () => {
+    // Update auth token on every connect so server middleware has fresh token
     socket!.auth = { token: tokenStore.get() }
-    // Always re-join personal room on connect/reconnect so notifications arrive
+    // Re-join personal room explicitly as backup
     if (_userId) socket!.emit('user:join', _userId)
+  })
+
+  socket.on('disconnect', () => {
+    // On disconnect, update auth so reconnect uses latest token
+    if (socket) socket.auth = { token: tokenStore.get() }
   })
 
   return socket

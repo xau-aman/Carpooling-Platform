@@ -43,7 +43,8 @@ export const startTrip = async (req: AuthRequest, res: Response) => {
 
     const passengers = trip.participants.filter(p => !p.isDriver)
     for (const p of passengers) {
-      ioInstance?.to(`user:${p.userId}`).emit('trip:otp', { tripId: trip.id, otp })
+      // Emit to user personal room AND trip room — covers both connected states
+      ioInstance?.to(`user:${p.userId}`).to(`trip:${trip.id}`).emit('trip:otp', { tripId: trip.id, otp })
       await pushNotification(p.userId, 'Your Ride OTP', `Share OTP ${otp} with your driver to start the ride`).catch(() => {})
     }
 

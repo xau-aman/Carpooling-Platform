@@ -81,12 +81,18 @@ function NotificationBridge() {
   useEffect(() => {
     if (!user) return
     const s = connectSocket()
+    // Emit user:join now and on every reconnect
     s.emit('user:join', user.id)
+    const rejoin = () => s.emit('user:join', user.id)
+    s.on('connect', rejoin)
     const handler = (d: { title: string; body: string }) => {
       showLocalNotification(d.title, d.body)
     }
     s.on('notification:new', handler)
-    return () => { s.off('notification:new', handler) }
+    return () => {
+      s.off('connect', rejoin)
+      s.off('notification:new', handler)
+    }
   }, [user?.id])
   return null
 }
