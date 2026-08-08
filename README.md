@@ -501,7 +501,7 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 ## 👥 Team
 
-Built for **Odoo Hackathon 2025** 🏆
+Built for **Odoo Hackathon 2026** 🏆
 
 ---
 
