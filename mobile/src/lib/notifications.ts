@@ -3,8 +3,6 @@ import { Capacitor } from '@capacitor/core'
 
 let notifId = 100
 let channelCreated = false
-// Never cache as false — always re-check so user granting permission later works
-let permissionGranted = false
 
 async function ensureChannel() {
   if (channelCreated) return
@@ -22,7 +20,7 @@ async function ensureChannel() {
       id: 'gotogether_payments',
       name: 'Payments',
       description: 'Payment confirmations and earnings',
-      importance: 4,
+      importance: 5,
       visibility: 1,
       vibration: true,
       sound: 'default',
@@ -31,7 +29,7 @@ async function ensureChannel() {
       id: 'gotogether_live',
       name: 'Live Trip',
       description: 'Ongoing trip progress',
-      importance: 3,
+      importance: 4,
       visibility: 1,
       vibration: false,
       sound: 'default',
@@ -40,29 +38,12 @@ async function ensureChannel() {
   } catch {}
 }
 
+// Called once on login/restore — just sets up channels
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
-  try {
-    // Channels must exist before scheduling — create them here
-    await ensureChannel()
-    // Permission was already requested natively in MainActivity on launch
-    // Just check current state and cache it
-    const { display } = await LocalNotifications.checkPermissions()
-    if (display === 'granted') { permissionGranted = true }
-    return display === 'granted'
-  } catch {
-    return false
-  }
-}
-
-async function checkPermission(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false
-  if (permissionGranted) return true
-  try {
-    const { display } = await LocalNotifications.checkPermissions()
-    permissionGranted = display === 'granted'
-    return permissionGranted
-  } catch { return false }
+  await ensureChannel()
+  const { display } = await LocalNotifications.checkPermissions().catch(() => ({ display: 'denied' as const }))
+  return display === 'granted'
 }
 
 function getChannelId(title: string): string {
@@ -76,8 +57,9 @@ export async function showLocalNotification(title: string, body: string) {
   if (!Capacitor.isNativePlatform()) return
   try {
     await ensureChannel()
-    const ok = await checkPermission()
-    if (!ok) return
+    // Always fresh check — no caching that could block notifications
+    const { display } = await LocalNotifications.checkPermissions()
+    if (display !== 'granted') return
     await LocalNotifications.schedule({
       notifications: [{
         id: notifId++,
@@ -90,28 +72,28 @@ export async function showLocalNotification(title: string, body: string) {
       }]
     })
   } catch (e) {
-    console.warn('[Notif] Failed:', e)
+    console.warn('[Notif]', e)
   }
 }
 
-// Live trip progress notification — updates in place (same id = 1)
+// Live trip progress notification — same id so it updates in place
 const LIVE_NOTIF_ID = 1
 export async function showLiveTripNotification(from: string, to: string, status: string) {
   if (!Capacitor.isNativePlatform()) return
   try {
     await ensureChannel()
-    const ok = await checkPermission()
-    if (!ok) return
-    const statusText: Record<string, string> = {
-      IN_PROGRESS: '🚗 Trip in progress',
-      STARTED: '🔑 OTP verification pending',
-      PAYMENT_PENDING: '💳 Trip done — payment pending',
+    const { display } = await LocalNotifications.checkPermissions()
+    if (display !== 'granted') return
+    const titles: Record<string, string> = {
+      IN_PROGRESS:     '🚗 Trip in progress',
+      STARTED:         '🔑 OTP pending — share with driver',
+      PAYMENT_PENDING: '💳 Trip done — tap to pay',
     }
     await LocalNotifications.schedule({
       notifications: [{
         id: LIVE_NOTIF_ID,
-        title: statusText[status] ?? '🚗 GoTogether',
-        body: `${from} → ${to}`,
+        title: titles[status] ?? '🚗 GoTogether',
+        body: `${from.split(',')[0]} → ${to.split(',')[0]}`,
         channelId: 'gotogether_live',
         iconColor: '#f97316',
         ongoing: status === 'IN_PROGRESS',
@@ -120,7 +102,7 @@ export async function showLiveTripNotification(from: string, to: string, status:
       }]
     })
   } catch (e) {
-    console.warn('[LiveNotif] Failed:', e)
+    console.warn('[LiveNotif]', e)
   }
 }
 

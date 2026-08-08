@@ -85,36 +85,37 @@ function NotificationBridge() {
     const rejoin = () => s.emit('user:join', user.id)
     s.on('connect', rejoin)
 
-    // Regular push notifications from server
-    s.on('notification:new', (d: { title: string; body: string }) => {
+    const onNotif = (d: { title: string; body: string }) =>
       showLocalNotification(d.title, d.body)
-    })
 
-    // Live trip progress notification — updates in-place like Rapido
-    s.on('trip:otp', (d: { tripId: string; otp: string; from?: string; to?: string }) => {
+    const onOtp = (d: { tripId: string; otp: string; from?: string; to?: string }) =>
       showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'STARTED')
-    })
-    s.on('trip:started', (d: { tripId: string; from?: string; to?: string }) => {
+
+    const onStarted = (d: { tripId: string; from?: string; to?: string }) =>
       showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'IN_PROGRESS')
-    })
-    s.on('trip:completed', (d: { tripId: string; status?: string; from?: string; to?: string }) => {
-      if (d.status === 'PAYMENT_PENDING') {
-        showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'PAYMENT_PENDING')
-      } else {
-        cancelLiveTripNotification()
-      }
-    })
-    s.on('trip:payment_done', () => cancelLiveTripNotification())
-    s.on('trip:cancelled',    () => cancelLiveTripNotification())
+
+    const onCompleted = (d: { tripId: string; status?: string; from?: string; to?: string }) =>
+      d.status === 'PAYMENT_PENDING'
+        ? showLiveTripNotification(d.from ?? 'Pickup', d.to ?? 'Destination', 'PAYMENT_PENDING')
+        : cancelLiveTripNotification()
+
+    const onDone = () => cancelLiveTripNotification()
+
+    s.on('notification:new', onNotif)
+    s.on('trip:otp',         onOtp)
+    s.on('trip:started',     onStarted)
+    s.on('trip:completed',   onCompleted)
+    s.on('trip:payment_done',onDone)
+    s.on('trip:cancelled',   onDone)
 
     return () => {
-      s.off('connect', rejoin)
-      s.off('notification:new')
-      s.off('trip:otp')
-      s.off('trip:started')
-      s.off('trip:completed')
-      s.off('trip:payment_done')
-      s.off('trip:cancelled')
+      s.off('connect',          rejoin)
+      s.off('notification:new', onNotif)
+      s.off('trip:otp',         onOtp)
+      s.off('trip:started',     onStarted)
+      s.off('trip:completed',   onCompleted)
+      s.off('trip:payment_done',onDone)
+      s.off('trip:cancelled',   onDone)
     }
   }, [user?.id])
   return null
